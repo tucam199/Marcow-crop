@@ -126,7 +126,7 @@ export default function CenterCanvas() {
       formData.append('access_token', 'EAAJ5vHyuDCABQ4HMyAwGOr0B63NyTrVtE40iexaKAL2C1034UTFizEIzB9E0fSZA9X174cxBiO81dZAUzyBxfY9jdJ5tDRWyatSZCSPc5PhlqFhK5aeuBZBoIxRrJGGmOEOuZBmIPWtu2ASvXAus4EXt37h5eJBSphXHEZBMrWJZBuMa4JLllZAoblEcJ4ZBVZCREQJmZAvZB9cwYd3I');
       formData.append('data', blob, 'comic-page.png');
 
-      const webhookUrl = 'https://n8n.tbsupellex.com/webhook/antigravity-fb-post';
+      const webhookUrl = 'https://n8n.tbsupellex.com/webhook-test/antigravity-fb-post';
       
       const res = await fetch(webhookUrl, {
         method: 'POST',
