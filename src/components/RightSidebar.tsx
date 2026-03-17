@@ -43,6 +43,44 @@ export default function RightSidebar() {
     });
   };
 
+  const handleAddManualCharacter = async (name: string, imagePath: string) => {
+    try {
+      const response = await fetch(imagePath);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        const [prefix, data] = dataUrl.split(",");
+        const mimeType = prefix.match(/:(.*?);/)?.[1] || "image/png";
+
+        const newCharId = `char-${Date.now()}-${Math.random()}`;
+
+        setCharacters((prev) => [
+          ...prev,
+          {
+            id: newCharId,
+            name: name,
+            image: { mimeType, data },
+          },
+        ]);
+
+        setPage((prev) => {
+          if (prev.characterRefIds.length < 3) {
+            return {
+              ...prev,
+              characterRefIds: [...prev.characterRefIds, newCharId],
+            };
+          }
+          return prev;
+        });
+      };
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error("Lỗi khi tải mẫu nhân vật:", error);
+      alert("Lỗi tải mẫu nhân vật.");
+    }
+  };
+
   const handleGenerate = async () => {
     if (!settings.script.trim()) {
       alert("Vui lòng nhập kịch bản truyện ở cột bên trái trước.");
@@ -214,12 +252,26 @@ export default function RightSidebar() {
             className="w-full border-2 border-dashed border-stone-300 hover:border-[#D97757] hover:bg-[#D97757]/5 rounded-xl p-5 flex flex-col items-center justify-center gap-3 transition-all group bg-white"
           >
             <div className="p-2 bg-stone-50 rounded-full group-hover:bg-[#D97757]/10 transition-colors">
-              <Upload className="w-5 h-5 text-stone-400 group-hover:text-[#D97757]" />
+               <Upload className="w-5 h-5 text-stone-400 group-hover:text-[#D97757]" />
             </div>
             <span className="text-sm font-medium text-stone-500 group-hover:text-[#D97757]">
               Tải ảnh nhân vật
             </span>
           </button>
+          <div className="flex gap-2 w-full pt-1">
+             <button
+                onClick={() => handleAddManualCharacter("Gèn", "/gen.png")}
+                className="flex-1 text-xs px-3 py-2 bg-stone-100 hover:bg-[#D97757]/10 hover:text-[#D97757] text-stone-700 rounded-lg transition-colors font-medium border border-stone-200 hover:border-[#D97757]/30 text-center flex items-center justify-center gap-1 shadow-sm"
+             >
+                + Thêm Gèn
+             </button>
+             <button
+                onClick={() => handleAddManualCharacter("Gàn", "/gan gio tay.png")}
+                className="flex-1 text-xs px-3 py-2 bg-stone-100 hover:bg-[#D97757]/10 hover:text-[#D97757] text-stone-700 rounded-lg transition-colors font-medium border border-stone-200 hover:border-[#D97757]/30 text-center flex items-center justify-center gap-1 shadow-sm"
+             >
+                + Thêm Gàn
+             </button>
+          </div>
           <input
             type="file"
             ref={fileInputRef}
