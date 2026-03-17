@@ -169,8 +169,8 @@ export default function CenterCanvas() {
 
       const formData = new FormData();
       formData.append('message', page.originalScript || 'Comic page generated with AI Comic & Meme Studio');
-      formData.append('target_id', '61569274002079');
-      formData.append('access_token', 'EAAJ5vHyuDCABQ4HMyAwGOr0B63NyTrVtE40iexaKAL2C1034UTFizEIzB9E0fSZA9X174cxBiO81dZAUzyBxfY9jdJ5tDRWyatSZCSPc5PhlqFhK5aeuBZBoIxRrJGGmOEOuZBmIPWtu2ASvXAus4EXt37h5eJBSphXHEZBMrWJZBuMa4JLllZAoblEcJ4ZBVZCREQJmZAvZB9cwYd3I');
+      formData.append('target_id', '100093978627685');
+      formData.append('access_token', 'EAAJ5vHyuDCABQ7shjr5YDOYH6ZCqvnWOaaCMEam072e6UWDlyXTWnDesseGFMlIa1ADETJZC6rTmqmWCckgjlJweueZB3TimRQ3sfKqy1eKawQtyGNMxiTfXJkQxbermlXRIvUw3TBxlUM0B7bRPEmYUeoXQ3SVk2B0sPvgIFZCOmYBJdSxOog2eX6DntEtUWu8GbJ20TheZCQ51ZAoqcZD');
       formData.append('data', blob, 'comic-page.jpg');
 
       const webhookUrl = 'https://n8n.tbsupellex.com/webhook-test/antigravity-fb-post';
