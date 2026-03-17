@@ -118,21 +118,44 @@ export default function CenterCanvas() {
 
     try {
       // Dùng cách tải y hệt như lúc ấn Download để tránh bị trình duyệt chặn (CORS) lỗi Failed to fetch
+      // Bổ sung thêm nén dung lượng để tránh lỗi 413 Payload Too large ở phía server n8n
       const getBlobFromImage = (url: string): Promise<Blob> => {
         return new Promise((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = "anonymous";
           img.onload = () => {
             const canvas = document.createElement("canvas");
-            canvas.width = img.width;
-            canvas.height = img.height;
+            
+            // Giới hạn kích thước tối đa để giảm cực đại dung lượng ảnh
+            let width = img.width;
+            let height = img.height;
+            const maxSize = 1200; // Facebook khuyến nghị width khoảng 1200px
+            
+            if (width > maxSize || height > maxSize) {
+              const ratio = Math.min(maxSize / width, maxSize / height);
+              width = Math.round(width * ratio);
+              height = Math.round(height * ratio);
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
             const ctx = canvas.getContext("2d");
             if (ctx) {
-              ctx.drawImage(img, 0, 0);
+              // Điền nền trắng vì JPEG không hỗ trợ trong suốt (PNG)
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, width, height);
+              
+              // Bật bộ lọc khử răng cưa
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = "high";
+              ctx.drawImage(img, 0, 0, width, height);
+              
+              // Nén thành JPEG với chất lượng 80%
               canvas.toBlob((blob) => {
                 if (blob) resolve(blob);
                 else reject(new Error("Không thể tạo dữ liệu ảnh"));
-              }, "image/png");
+              }, "image/jpeg", 0.8);
             } else {
               reject(new Error("Context Canvas bị lỗi"));
             }
@@ -148,7 +171,7 @@ export default function CenterCanvas() {
       formData.append('message', page.originalScript || 'Comic page generated with AI Comic & Meme Studio');
       formData.append('target_id', '61569274002079');
       formData.append('access_token', 'EAAJ5vHyuDCABQ4HMyAwGOr0B63NyTrVtE40iexaKAL2C1034UTFizEIzB9E0fSZA9X174cxBiO81dZAUzyBxfY9jdJ5tDRWyatSZCSPc5PhlqFhK5aeuBZBoIxRrJGGmOEOuZBmIPWtu2ASvXAus4EXt37h5eJBSphXHEZBMrWJZBuMa4JLllZAoblEcJ4ZBVZCREQJmZAvZB9cwYd3I');
-      formData.append('data', blob, 'comic-page.png');
+      formData.append('data', blob, 'comic-page.jpg');
 
       const webhookUrl = 'https://n8n.tbsupellex.com/webhook-test/antigravity-fb-post';
       
