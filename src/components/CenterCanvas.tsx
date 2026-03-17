@@ -102,7 +102,7 @@ const InteractiveDots = () => {
 };
 
 export default function CenterCanvas() {
-  const { settings, page, characters } = useAppContext();
+  const { settings, page, characters, setPage } = useAppContext();
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [currentGuideStep, setCurrentGuideStep] = useState(0);
@@ -168,16 +168,7 @@ export default function CenterCanvas() {
       const blob = await getBlobFromImage(page.imageUrl);
 
       const formData = new FormData();
-      let postMessage = page.originalScript || 'Comic page generated with AI Comic & Meme Studio';
-      
-      let currentParsedJson = null;
-      try {
-        if (page.generatedJson) currentParsedJson = JSON.parse(page.generatedJson);
-      } catch (e) {}
-
-      if (currentParsedJson?.post_caption) {
-        postMessage = currentParsedJson.post_caption;
-      }
+      let postMessage = page.postCaption || page.originalScript || 'Comic page generated with AI Comic & Meme Studio';
 
       formData.append('message', postMessage);
       formData.append('target_id', '100093978627685');
@@ -465,9 +456,9 @@ export default function CenterCanvas() {
               </div>
 
               {/* Caption Box */}
-              {isJsonValid && !!parsedJson?.post_caption && page.imageUrl && !page.isGenerating && (
+              {!!page.postCaption && page.imageUrl && !page.isGenerating && (
                 <div 
-                  className="w-full md:w-64 bg-white border border-[#D97757]/30 rounded-2xl shadow-sm p-5 flex flex-col gap-4 shrink-0 transition-transform duration-300 animate-in fade-in slide-in-from-right-4"
+                  className="w-full md:w-64 bg-white border border-[#D97757]/30 rounded-2xl shadow-sm p-5 flex flex-col gap-4 shrink-0 transition-transform duration-300 animate-in fade-in slide-in-from-right-4 relative"
                 >
                   <div className="flex items-center gap-2 border-b border-stone-100 pb-3">
                      <div className="w-7 h-7 rounded-full bg-[#D97757]/10 flex items-center justify-center shrink-0">
@@ -479,18 +470,19 @@ export default function CenterCanvas() {
                      </h3>
                   </div>
                   
-                  <div className="relative">
-                    <div className="absolute -left-1.5 -top-1.5 text-[#D97757]/20 font-serif text-3xl leading-none">"</div>
-                    <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap pl-2 relative z-10 italic">
-                      {parsedJson.post_caption}
-                    </p>
-                    <div className="absolute -right-1 -bottom-3 text-[#D97757]/20 font-serif text-3xl leading-none rotate-180">"</div>
+                  <div className="relative flex-1 flex flex-col group mt-1">
+                    <div className="absolute -left-1.5 -top-3 text-[#D97757]/20 font-serif text-3xl leading-none select-none pointer-events-none z-10">"</div>
+                    <textarea 
+                      value={page.postCaption || ""}
+                      onChange={(e) => setPage({ ...page, postCaption: e.target.value })}
+                      className="w-full flex-1 bg-transparent border-0 rounded-xl p-1 pt-2 pb-0 text-sm text-stone-700 leading-relaxed outline-none focus:ring-2 focus:ring-[#D97757]/20 focus:bg-stone-50 resize-none h-[180px] z-10"
+                    />
                   </div>
 
                   <button 
                     onClick={async (e) => {
                       e.stopPropagation();
-                      await navigator.clipboard.writeText(parsedJson.post_caption);
+                      await navigator.clipboard.writeText(page.postCaption || "");
                       alert("Đã sao chép Content!");
                     }}
                     className="mt-2 w-full text-[#D97757] hover:text-white bg-[#D97757]/5 hover:bg-[#D97757] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-[#D97757]/50 rounded-xl py-2.5 active:scale-95"

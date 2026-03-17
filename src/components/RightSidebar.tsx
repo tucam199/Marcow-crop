@@ -184,12 +184,21 @@ export default function RightSidebar() {
         referenceImages.length > 0 ? referenceImages : undefined,
       );
 
+      let extractedCaption = "";
+      try {
+        const parsedScript = JSON.parse(settings.script);
+        if (parsedScript.post_caption) {
+          extractedCaption = parsedScript.post_caption;
+        }
+      } catch (e) {}
+
       setPage((prev) => ({ 
         ...prev, 
         imageUrl, 
         isGenerating: false,
         originalScript: settings.script,
-        generatedJson: generatedJsonStr
+        generatedJson: generatedJsonStr,
+        postCaption: extractedCaption,
       }));
     } catch (error: any) {
       console.error("Failed to generate image:", error);

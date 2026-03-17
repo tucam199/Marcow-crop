@@ -19,4 +19,5 @@ export interface PageData {
   characterRefIds: string[];
   originalScript?: string;
   generatedJson?: string;
+  postCaption?: string;
 }
