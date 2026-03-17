@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useAppContext } from "../AppContext";
-import { Loader2, Download, X, Info, Copy, Check, ChevronDown, HelpCircle } from "lucide-react";
+import { Loader2, Download, X, Info, Copy, Check, ChevronDown, HelpCircle, Send } from "lucide-react";
 
 const InteractiveDots = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -108,6 +108,44 @@ export default function CenterCanvas() {
   const [currentGuideStep, setCurrentGuideStep] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
+  const [postSuccess, setPostSuccess] = useState(false);
+
+  const handlePostToFacebook = async () => {
+    if (!page.imageUrl) return;
+    setIsPosting(true);
+    setPostSuccess(false);
+
+    try {
+      const response = await fetch(page.imageUrl);
+      const blob = await response.blob();
+
+      const formData = new FormData();
+      formData.append('message', page.originalScript || 'Comic page generated with AI Comic & Meme Studio');
+      formData.append('target_id', '61569274002079');
+      formData.append('access_token', 'EAAJ5vHyuDCABQ4HMyAwGOr0B63NyTrVtE40iexaKAL2C1034UTFizEIzB9E0fSZA9X174cxBiO81dZAUzyBxfY9jdJ5tDRWyatSZCSPc5PhlqFhK5aeuBZBoIxRrJGGmOEOuZBmIPWtu2ASvXAus4EXt37h5eJBSphXHEZBMrWJZBuMa4JLllZAoblEcJ4ZBVZCREQJmZAvZB9cwYd3I');
+      formData.append('data', blob, 'comic-page.png');
+
+      const webhookUrl = 'https://n8n.tbsupellex.com/webhook/antigravity-fb-post';
+      
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        setPostSuccess(true);
+        setTimeout(() => setPostSuccess(false), 3000);
+      } else {
+        alert('Có lỗi xảy ra khi đăng bài.');
+      }
+    } catch (error) {
+      console.error('Error posting to FB:', error);
+      alert('Có lỗi xảy ra khi kết nối. Vui lòng thử lại.');
+    } finally {
+      setIsPosting(false);
+    }
+  };
 
   const guideSteps = [
     {
@@ -282,9 +320,31 @@ export default function CenterCanvas() {
 
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center px-8 pb-12 pt-6 md:px-12">
           {page.imageUrl && (
-            <div className="w-full flex justify-end mb-6 relative">
+            <div className="w-full flex justify-end mb-6 relative gap-3">
               <button
-                onClick={() => setIsDownloadMenuOpen(!isDownloadMenuOpen)}
+                onClick={handlePostToFacebook}
+                disabled={isPosting}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm active:scale-[0.98]
+                  ${postSuccess 
+                    ? 'bg-green-50 text-green-600 border border-green-200' 
+                    : 'bg-[#1877F2] hover:bg-[#166FE5] text-white border border-transparent hover:shadow-md'
+                  }
+                  ${isPosting ? 'opacity-80 cursor-not-allowed' : ''}
+                `}
+              >
+                {isPosting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : postSuccess ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                {isPosting ? 'Đang đăng...' : postSuccess ? 'Đã đăng thành công' : 'Đăng lên Facebook'}
+              </button>
+
+              <div className="relative">
+                <button
+                  onClick={() => setIsDownloadMenuOpen(!isDownloadMenuOpen)}
                 className="flex items-center gap-2 bg-white border border-stone-200 hover:bg-stone-50 hover:border-stone-300 text-stone-700 px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm hover:shadow active:scale-[0.98]"
               >
                 <Download className="w-4 h-4" />
@@ -323,6 +383,7 @@ export default function CenterCanvas() {
                   </div>
                 </>
               )}
+              </div>
             </div>
           )}
 
