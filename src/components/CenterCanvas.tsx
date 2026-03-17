@@ -343,27 +343,7 @@ export default function CenterCanvas() {
       <InteractiveDots />
       
       <div className="w-full h-full overflow-y-auto z-10 flex flex-col items-center">
-        {/* Header Bar */}
-        <div className="w-full flex justify-end items-center px-8 pt-6 shrink-0">
-          {/* Right Actions */}
-          <div className="flex justify-end items-center gap-3">
-            <button 
-              onClick={() => alert('Tính năng mua xu hiện tại chưa phát triển')}
-              className="flex items-center gap-2 bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm"
-            >
-              <span className="text-[#D97757] font-bold">100 Xu</span>
-              <span className="text-stone-300">|</span>
-              <span>Mua xu</span>
-            </button>
-            <button 
-              onClick={() => setIsGuideModalOpen(true)}
-              className="flex items-center gap-2 bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm"
-            >
-              <HelpCircle className="w-4 h-4" />
-              Hướng dẫn
-            </button>
-          </div>
-        </div>
+
 
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center px-8 pb-12 pt-6 md:px-12">
           {page.imageUrl && (

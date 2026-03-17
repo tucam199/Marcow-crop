@@ -18,8 +18,10 @@ export async function generateScriptFromImage(
 
   const prompt = `Phân tích hình ảnh này và tạo kịch bản truyện tranh.${textContextPrompt}
 
-LƯU Ý TỐI QUAN TRỌNG VỀ ĐỊNH DANH NHÂN VẬT:
+LƯU Ý TỐI QUAN TRỌNG VỀ ĐỊNH DANH VÀ MIÊU TẢ NHÂN VẬT:
 - BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC tự đặt tên nhân vật dựa trên ngoại hình hoặc loài vật (VÍ DỤ: CẤM DÙNG "CHARACTER_BULL", "CHARACTER_BEAR", "BULL", "BEAR", "BOY", "GIRL").
+- BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC miêu tả ngoại hình, giống loài, hay trang phục của nhân vật trong bất kỳ trường dữ liệu nào (scene, action, expression). Ví dụ: Cấm viết "Character 1, a bull dressed in Middle Eastern attire, is walking". Bạn XÓA HOÀN TOÀN phần miêu tả ngoại hình và CHỈ tập trung vào hành động.
+- Để miêu tả nhân vật, bạn CHỈ ĐƯỢC PHÉP mô tả 'trạng thái', 'biểu cảm' và 'hành động' của định danh nhân vật đó (Ví dụ chuẩn: "Character 1 is walking precariously across the bridge"). 
 - BẠN CHỈ ĐƯỢC PHÉP sử dụng các định danh sau đây cho các nhân vật xuất hiện trong ảnh: ${characterNames.map(n => `"${n}"`).join(", ")}.
 - Nếu trong ảnh có 2 nhân vật, hãy gọi chúng là "${characterNames[0] || "Character 1"}" và "${characterNames[1] || "Character 2"}".
 
@@ -36,7 +38,7 @@ Bạn BẮT BUỘC phải trả về kết quả tuân thủ chính xác cấu t
     {
       "panel_id": [Số thứ tự khung truyện, bắt đầu từ 1],
       "characters_involved": ["[Danh sách nhân vật CÓ MẶT trong khung này, CHỈ DÙNG các định danh đã cho ở trên]"],
-      "scene": "[Mô tả ngắn gọn bối cảnh nền]",
+      "scene": "[Mô tả ngắn gọn bối cảnh nền, tuyệt đối bỏ qua ngoại hình/loài của nhân vật]",
       "action": "[Mô tả chi tiết hành động vật lý, tư thế của từng nhân vật]",
       "expression": "[Mô tả chi tiết biểu cảm khuôn mặt của từng nhân vật]",
       "dialogue": "[Nội dung hội thoại text]"
