@@ -34,7 +34,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [settings, setSettings] = useState<GlobalSettings>({
     aspectRatio: "1:1",
-    artStyle: "Manga",
+    artStyle: "Thỏ Bảy Màu",
     script: "",
   });
   const [characters, setCharacters] = useState<Character[]>([]);
