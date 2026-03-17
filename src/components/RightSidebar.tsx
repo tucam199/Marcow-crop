@@ -1,11 +1,62 @@
 import React, { useRef } from "react";
 import { useAppContext } from "../AppContext";
 import { generatePanelImage, generateImagePromptsFromJson } from "../services/gemini";
-import { Wand2, Loader2, Image as ImageIcon, Upload, Trash2 } from "lucide-react";
+import { Wand2, Loader2, Image as ImageIcon, Upload, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 
 export default function RightSidebar() {
   const { settings, characters, setCharacters, page, setPage, resetKey } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasInitialized = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!hasInitialized.current && characters.length === 0) {
+      hasInitialized.current = true;
+      
+      const initDefaults = async () => {
+        try {
+          const loadBlob = (url: string): Promise<{mimeType: string, data: string}> => 
+            fetch(url).then(r => r.blob()).then(blob => new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const dataUrl = e.target?.result as string;
+                resolve({
+                  mimeType: dataUrl.match(/:(.*?);/)?.[1] || "image/png",
+                  data: dataUrl.split(",")[1]
+                });
+              };
+              reader.readAsDataURL(blob);
+            }));
+
+          const [char1, char2] = await Promise.all([
+            loadBlob("/gen.png"),
+            loadBlob("/gan gio tay.png")
+          ]);
+
+          const id1 = `char-${Date.now()}-1`;
+          const id2 = `char-${Date.now()}-2`;
+
+          setCharacters([
+            { id: id1, name: "Character 1", image: char1 },
+            { id: id2, name: "Character 2", image: char2 }
+          ]);
+
+          setPage(prev => {
+            const newRefs = [...prev.characterRefIds];
+            if (!newRefs.includes(id1) && newRefs.length < 3) newRefs.push(id1);
+            if (!newRefs.includes(id2) && newRefs.length < 3) newRefs.push(id2);
+            return {
+              ...prev,
+              characterRefIds: newRefs
+            };
+          });
+        } catch (e) {
+          console.error("Lỗi khởi tạo nhân vật", e);
+        }
+      };
+
+      initDefaults();
+    }
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -167,7 +218,7 @@ export default function RightSidebar() {
         </p>
 
         <div className="space-y-4">
-          {characters.map((char) => {
+          {characters.map((char, index) => {
             const isSelected = page.characterRefIds.includes(char.id);
             return (
               <div
@@ -228,6 +279,38 @@ export default function RightSidebar() {
                     placeholder="Tên nhân vật..."
                   />
                 </div>
+                
+                <div className="flex flex-col shrink-0 gap-0.5 ml-1">
+                  <button
+                    onClick={() => {
+                      if (index > 0) {
+                        const newChars = [...characters];
+                        [newChars[index - 1], newChars[index]] = [newChars[index], newChars[index - 1]];
+                        setCharacters(newChars);
+                      }
+                    }}
+                    disabled={index === 0}
+                    className="text-stone-400 hover:text-stone-700 disabled:opacity-30 disabled:hover:text-stone-400 p-0.5 rounded transition-colors"
+                    title="Di chuyển lên"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (index < characters.length - 1) {
+                        const newChars = [...characters];
+                        [newChars[index], newChars[index + 1]] = [newChars[index + 1], newChars[index]];
+                        setCharacters(newChars);
+                      }
+                    }}
+                    disabled={index === characters.length - 1}
+                    className="text-stone-400 hover:text-stone-700 disabled:opacity-30 disabled:hover:text-stone-400 p-0.5 rounded transition-colors"
+                    title="Di chuyển xuống"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+
                 <button
                   onClick={() => {
                     setCharacters(characters.filter((c) => c.id !== char.id));
