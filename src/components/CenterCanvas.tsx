@@ -171,8 +171,8 @@ export default function CenterCanvas() {
       let postMessage = page.postCaption || page.originalScript || 'Comic page generated with AI Comic & Meme Studio';
 
       formData.append('message', postMessage);
-      formData.append('target_id', '100093978627685');
-      formData.append('access_token', 'EAAJ5vHyuDCABQ7shjr5YDOYH6ZCqvnWOaaCMEam072e6UWDlyXTWnDesseGFMlIa1ADETJZC6rTmqmWCckgjlJweueZB3TimRQ3sfKqy1eKawQtyGNMxiTfXJkQxbermlXRIvUw3TBxlUM0B7bRPEmYUeoXQ3SVk2B0sPvgIFZCOmYBJdSxOog2eX6DntEtUWu8GbJ20TheZCQ51ZAoqcZD');
+      formData.append('target_id', '61580780799750');
+      formData.append('access_token', 'EAAJ5vHyuDCABQw8hyLYpE6iAnLfTtB1nS9EK8mLg3YCYsxWN3YGqNwuIRn6Jb07YaqGwUBWlmMnA5MDME0EAgZC2sZBO8H1hlxd5OuHkbHHoQH8x5189BTSGvEzZAgW5Fb8iZA0dIuxz23WYSOJ1ZAajzccZAlgYalMnOJDi4wPPgROI3mF7iT84R735i5IzLvZCGfU3ZCWJY7q5oMs7ZAILz');
       formData.append('data', blob, 'comic-page.jpg');
 
       const webhookUrl = 'https://n8n.tbsupellex.com/webhook/antigravity-fb-post';
