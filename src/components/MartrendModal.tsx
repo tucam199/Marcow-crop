@@ -35,17 +35,63 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
   const [results, setResults] = useState<FacebookPost[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
   
-  const [fanpageUrls, setFanpageUrls] = useState<string[]>([
-    "https://www.facebook.com/ThoBayMau",
-    "https://www.facebook.com/bovagau",
-    "https://www.facebook.com/EnComics"
-  ]);
+  const [fanpageUrls, setFanpageUrls] = useState<string[]>([]);
+  const [isLoadingUrls, setIsLoadingUrls] = useState(false);
 
   React.useEffect(() => {
-    if (isOpen && !url && fanpageUrls.length > 0) {
-      setUrl(fanpageUrls[0]);
-    }
-  }, [isOpen, url, fanpageUrls]);
+    const fetchFanpageUrls = async () => {
+      if (!isOpen) return;
+      setIsLoadingUrls(true);
+      try {
+        // Fallback mặc định
+        let urls: string[] = [
+          "https://www.facebook.com/ThoBayMau",
+          "https://www.facebook.com/bovagau",
+          "https://www.facebook.com/EnComics"
+        ];
+        
+        try {
+          // Gọi Webhook n8n để lấy danh sách link động
+          const res = await fetch('https://n8n.tbsupellex.com/webhook/71aee092-d6ff-4dc3-9c86-1bddee35ba70');
+          if (res.ok) {
+            const data = await res.json();
+            // Try to extract an array of strings from whatever n8n returned
+            let extractedUrls: string[] = [];
+            
+            if (Array.isArray(data)) {
+              extractedUrls = data;
+            } else if (data && typeof data === 'object') {
+              // Tìm kiếm mảng trong các key phổ biến
+              if (Array.isArray(data.urls)) extractedUrls = data.urls;
+              else if (Array.isArray(data.data)) extractedUrls = data.data;
+              else if (Array.isArray(data.links)) extractedUrls = data.links;
+              else if (Array.isArray(data[0]?.urls)) extractedUrls = data[0].urls; // Dạng mảng chứa object
+            }
+
+            // Extract string only
+            const validUrls = extractedUrls.filter(u => typeof u === 'string' && u.includes('facebook.com'));
+            
+            if (validUrls.length > 0) {
+              urls = validUrls;
+            }
+          }
+        } catch (e) {
+          console.warn('Không lấy được dữ liệu từ n8n webhook, dùng link mặc định.', e);
+        }
+        
+        if (urls.length > 0) {
+          setFanpageUrls(urls);
+          if (!url) setUrl(urls[0]);
+        }
+      } catch (error) {
+        console.error('Failed to prepare urls', error);
+      } finally {
+        setIsLoadingUrls(false);
+      }
+    };
+
+    fetchFanpageUrls();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -174,9 +220,12 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
               <select
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
+                disabled={isLoadingUrls}
                 className="w-full border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none transition-all disabled:bg-stone-50 disabled:text-stone-400"
               >
-                {fanpageUrls.length > 0 ? (
+                {isLoadingUrls ? (
+                  <option value="">Đang tải danh sách từ N8N...</option>
+                ) : fanpageUrls.length > 0 ? (
                   fanpageUrls.map((u, i) => (
                     <option key={i} value={u}>
                       {u}
