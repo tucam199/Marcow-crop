@@ -166,25 +166,38 @@ async function startServer() {
           });
         }
 
-        // Add post objects for each image found
-        const uniquePostImages = [...new Set(postImages)].filter(url => typeof url === 'string' && url.length > 5);
+        // Filter valid images only (exclude web links, post links, etc.)
+        const uniquePostImages = [...new Set(postImages)].filter(url => {
+          if (typeof url !== 'string' || url.length < 5) return false;
+          // Loại bỏ các đường link không phải file ảnh tĩnh (như link bài viết, link trang của facebook)
+          if (url.includes('facebook.com/') && !url.includes('scontent') && !url.includes('fbcdn')) {
+            return false; 
+          }
+          if (url.includes('l.facebook.com')) return false;
+          return true;
+        });
         
-        uniquePostImages.forEach(imageUrl => {
-          posts.push({
-            imageUrl: imageUrl,
-            text: item.text || item.message || '',
-            likes: item.likes || item.likesCount || 0,
-            comments: item.comments || item.commentsCount || 0,
-            shares: item.shares || item.sharesCount || 0,
-            postUrl: item.url || item.postUrl || '',
-            date: item.time || item.date || item.createdAt || ''
-          });
+        // Nếu không tìm thấy ảnh nào thoả mãn, bỏ qua bài viết này
+        if (uniquePostImages.length === 0) return;
+
+        // Chỉ lấy ảnh đầu tiên đẹp nhất để tránh 1 bài sinh ra nhiều post trùng chữ
+        const firstValidImageUrl = uniquePostImages[0];
+
+        posts.push({
+          imageUrl: firstValidImageUrl,
+          text: item.text || item.message || '',
+          likes: item.likes || item.likesCount || 0,
+          comments: item.comments || item.commentsCount || 0,
+          shares: item.shares || item.sharesCount || 0,
+          postUrl: item.url || item.postUrl || '',
+          date: item.time || item.date || item.createdAt || ''
         });
       });
       
-      // Lọc trùng lặp hình ảnh
+      // Lọc trùng lặp bài viết (dựa theo postUrl để loại bỏ hoàn toàn việc 1 bài xuất hiện 2 lần)
       const uniquePosts = posts.filter((post, index, self) =>
-        index === self.findIndex((t) => t.imageUrl === post.imageUrl)
+        index === self.findIndex((t) => t.postUrl === post.postUrl && t.postUrl !== '') ||
+        (post.postUrl === '' && index === self.findIndex((t) => t.imageUrl === post.imageUrl))
       );
       
       console.log(`Found ${uniquePosts.length} posts from ${items.length} items (Filtered out by date: ${filteredOutByDate})`);
