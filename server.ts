@@ -25,15 +25,30 @@ async function startServer() {
     }
 
     try {
-      // Xử lý urls dạng mảng
-      const targetUrls = urls || (url ? [url] : []);
-      if (targetUrls.length === 0) {
-        return res.status(400).json({ error: "Vui lòng cung cấp ít nhất 1 đường link Fanpage." });
+      // Xử lý urls cực kỳ an toàn
+      let cleanStartUrls: any[] = [];
+      const targetUrls = Array.isArray(urls) ? urls : (url ? [url] : []);
+      
+      for (const item of targetUrls) {
+        let u = "";
+        if (typeof item === 'string') u = item;
+        else if (item && typeof item === 'object' && item.url) u = item.url;
+        
+        // Làm sạch toàn bộ dấu ngoặc kép hoặc khoảng trắng dư thừa mầm bệnh
+        u = u.replace(/[\"\'\[\]]/g, '').trim();
+        
+        if (u.startsWith('http')) {
+          cleanStartUrls.push({ url: u });
+        }
+      }
+
+      if (cleanStartUrls.length === 0) {
+        return res.status(400).json({ error: "Vui lòng cung cấp ít nhất 1 đường link Fanpage hợp lệ." });
       }
 
       // Dựa theo schema của apify~facebook-posts-scraper
       const input: any = {
-        startUrls: targetUrls.map((u: string) => ({ url: u })),
+        startUrls: cleanStartUrls,
         resultsLimit: 15,
       };
 
