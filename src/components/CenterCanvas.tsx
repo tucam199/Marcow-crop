@@ -117,8 +117,32 @@ export default function CenterCanvas() {
     setPostSuccess(false);
 
     try {
-      const response = await fetch(page.imageUrl);
-      const blob = await response.blob();
+      // Dùng cách tải y hệt như lúc ấn Download để tránh bị trình duyệt chặn (CORS) lỗi Failed to fetch
+      const getBlobFromImage = (url: string): Promise<Blob> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              canvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error("Không thể tạo dữ liệu ảnh"));
+              }, "image/png");
+            } else {
+              reject(new Error("Context Canvas bị lỗi"));
+            }
+          };
+          img.onerror = () => reject(new Error("Không thể tải ảnh từ URL"));
+          img.src = url;
+        });
+      };
+
+      const blob = await getBlobFromImage(page.imageUrl);
 
       const formData = new FormData();
       formData.append('message', page.originalScript || 'Comic page generated with AI Comic & Meme Studio');
@@ -139,9 +163,9 @@ export default function CenterCanvas() {
       } else {
         alert('Có lỗi xảy ra khi đăng bài.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error posting to FB:', error);
-      alert('Có lỗi xảy ra khi kết nối. Vui lòng thử lại.');
+      alert(`Có lỗi xảy ra khi kết nối: ${error.message || 'Không rõ nguyên nhân'}\nVui lòng ấn F12 -> Console để xem chi tiết.`);
     } finally {
       setIsPosting(false);
     }
