@@ -43,24 +43,35 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
       if (!isOpen) return;
       setIsLoadingUrls(true);
       try {
-        const res = await fetch('https://n8n.tbsupellex.com/webhook/71aee092-d6ff-4dc3-9c86-1bddee35ba70');
-        if (res.ok) {
-          const data = await res.json();
-          // Kiểm tra xem data trả về là mảng trực tiếp hay nằm trong thuộc tính nào
-          let urls: string[] = [];
-          if (Array.isArray(data)) {
-            urls = data;
-          } else if (data && typeof data === 'object') {
-            urls = data.urls || data.data || [];
+        // Fallback luôn sang dữ liệu cứng do Webhook n8n không trả nguyên bản Array Json
+        let urls: string[] = [
+          "https://www.facebook.com/ThoBayMau",
+          "https://www.facebook.com/bovagau",
+          "https://www.facebook.com/EnComics"
+        ];
+        
+        try {
+          const res = await fetch('https://n8n.tbsupellex.com/webhook/71aee092-d6ff-4dc3-9c86-1bddee35ba70');
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              urls = data;
+            } else if (data && typeof data === 'object' && Array.isArray(data.urls) && data.urls.length > 0) {
+              urls = data.urls;
+            } else if (data && typeof data === 'object' && Array.isArray(data.data) && data.data.length > 0) {
+              urls = data.data;
+            }
           }
-          
-          if (urls.length > 0) {
-            setFanpageUrls(urls);
-            setUrl(urls[0]); // Auto-select first url
-          }
+        } catch (e) {
+          console.warn('Lỗi parse json từ N8n, tự động fallback về Array config cứng.', e);
+        }
+        
+        if (urls.length > 0) {
+          setFanpageUrls(urls);
+          setUrl(urls[0]); // Auto-select first url
         }
       } catch (error) {
-        console.error('Failed to fetch fanpage URLs', error);
+        console.error('Failed to set fanpage URLs', error);
       } finally {
         setIsLoadingUrls(false);
       }
