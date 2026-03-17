@@ -27,7 +27,7 @@ const MOCK_IMAGES = [
 ];
 
 export default function MartrendModal({ isOpen, onClose, onSelectImage }: MartrendModalProps) {
-  const [url, setUrl] = useState('');
+  const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isScanning, setIsScanning] = useState(false);
@@ -81,7 +81,10 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
         
         if (urls.length > 0) {
           setFanpageUrls(urls);
-          if (!url) setUrl(urls[0]);
+          if (selectedUrls.length === 0) {
+            // Auto check tất cả khi mới load
+            setSelectedUrls(urls);
+          }
         }
       } catch (error) {
         console.error('Failed to prepare urls', error);
@@ -96,12 +99,12 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
   if (!isOpen) return null;
 
   const handleScan = async () => {
-    if (!url) {
-      alert('Vui lòng nhập link Fanpage');
+    if (selectedUrls.length === 0) {
+      alert('Vui lòng chọn ít nhất 1 link Fanpage để quét');
       return;
     }
     console.log("--- BẮT ĐẦU QUÉT ---");
-    console.log("URL:", url, "Từ:", startDate, "Đến:", endDate);
+    console.log("URLs:", selectedUrls, "Từ:", startDate, "Đến:", endDate);
     
     setIsScanning(true);
     setScanStatus('Đang khởi tạo kết nối với Apify...');
@@ -114,7 +117,7 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
       const startRes = await fetch('/api/apify/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, startDate, endDate })
+        body: JSON.stringify({ urls: selectedUrls, startDate, endDate })
       });
       const startData = await startRes.json();
       console.log("Kết quả start:", startData);
@@ -215,26 +218,38 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
           {/* Left Panel: Search Form */}
           <div className="w-full md:w-80 shrink-0 border-r border-stone-100 p-5 flex flex-col gap-5 bg-white overflow-y-auto">
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1.5">Link Fanpage Facebook</label>
-              <select
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                disabled={isLoadingUrls}
-                className="w-full border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none transition-all disabled:bg-stone-50 disabled:text-stone-400"
-              >
+            <div className="flex flex-col">
+              <label className="block text-sm font-medium text-stone-700 mb-2">Fanpage Facebook Cần Quét</label>
+              <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
                 {isLoadingUrls ? (
-                  <option value="">Đang tải danh sách từ N8N...</option>
+                  <p className="text-sm text-stone-500 italic">Đang tải danh sách từ N8N...</p>
                 ) : fanpageUrls.length > 0 ? (
-                  fanpageUrls.map((u, i) => (
-                    <option key={i} value={u}>
-                      {u}
-                    </option>
-                  ))
+                  fanpageUrls.map((u, i) => {
+                    const isChecked = selectedUrls.includes(u);
+                    return (
+                      <label key={i} className={`flex flex-col gap-1 p-3 rounded-xl border cursor-pointer transition-colors ${isChecked ? 'bg-[#D97757]/5 border-[#D97757]/30' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedUrls(prev => [...prev, u]);
+                              } else {
+                                setSelectedUrls(prev => prev.filter(item => item !== u));
+                              }
+                            }}
+                            className="w-4 h-4 mt-0.5 accent-[#D97757] text-[#D97757] border-stone-300 rounded focus:ring-[#D97757]"
+                          />
+                          <span className="text-sm text-stone-700 font-medium break-words leading-tight flex-1">{u}</span>
+                        </div>
+                      </label>
+                    );
+                  })
                 ) : (
-                  <option value="">Không có link khả dụng</option>
+                  <p className="text-sm text-stone-500">Không có link khả dụng</p>
                 )}
-              </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1.5">Từ ngày</label>

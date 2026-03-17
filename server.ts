@@ -17,7 +17,7 @@ async function startServer() {
   });
 
   app.post("/api/apify/start", async (req, res) => {
-    const { url, startDate, endDate } = req.body;
+    const { url, urls, startDate, endDate } = req.body;
     const token = process.env.APIFY_API_TOKEN;
     
     if (!token) {
@@ -25,9 +25,15 @@ async function startServer() {
     }
 
     try {
+      // Xử lý urls dạng mảng
+      const targetUrls = urls || (url ? [url] : []);
+      if (targetUrls.length === 0) {
+        return res.status(400).json({ error: "Vui lòng cung cấp ít nhất 1 đường link Fanpage." });
+      }
+
       // Dựa theo schema của apify~facebook-posts-scraper
       const input: any = {
-        startUrls: [{ url }],
+        startUrls: targetUrls.map((u: string) => ({ url: u })),
         resultsLimit: 15,
       };
 
@@ -169,6 +175,8 @@ async function startServer() {
         // Filter valid images only (exclude web links, post links, etc.)
         const uniquePostImages = [...new Set(postImages)].filter(url => {
           if (typeof url !== 'string' || url.length < 5) return false;
+          // Chặn các link trỏ tiếp tới video/reel của facebook
+          if (url.includes('/video/') || url.includes('/videos/') || url.includes('/reel/')) return false;
           // Loại bỏ các đường link không phải file ảnh tĩnh (như link bài viết, link trang của facebook)
           if (url.includes('facebook.com/') && !url.includes('scontent') && !url.includes('fbcdn')) {
             return false; 
