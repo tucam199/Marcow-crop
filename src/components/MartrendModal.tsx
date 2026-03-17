@@ -35,50 +35,17 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
   const [results, setResults] = useState<FacebookPost[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
   
-  const [fanpageUrls, setFanpageUrls] = useState<string[]>([]);
-  const [isLoadingUrls, setIsLoadingUrls] = useState(false);
+  const [fanpageUrls, setFanpageUrls] = useState<string[]>([
+    "https://www.facebook.com/ThoBayMau",
+    "https://www.facebook.com/bovagau",
+    "https://www.facebook.com/EnComics"
+  ]);
 
   React.useEffect(() => {
-    const fetchFanpageUrls = async () => {
-      if (!isOpen) return;
-      setIsLoadingUrls(true);
-      try {
-        // Fallback luôn sang dữ liệu cứng do Webhook n8n không trả nguyên bản Array Json
-        let urls: string[] = [
-          "https://www.facebook.com/ThoBayMau",
-          "https://www.facebook.com/bovagau",
-          "https://www.facebook.com/EnComics"
-        ];
-        
-        try {
-          const res = await fetch('https://n8n.tbsupellex.com/webhook/71aee092-d6ff-4dc3-9c86-1bddee35ba70');
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-              urls = data;
-            } else if (data && typeof data === 'object' && Array.isArray(data.urls) && data.urls.length > 0) {
-              urls = data.urls;
-            } else if (data && typeof data === 'object' && Array.isArray(data.data) && data.data.length > 0) {
-              urls = data.data;
-            }
-          }
-        } catch (e) {
-          console.warn('Lỗi parse json từ N8n, tự động fallback về Array config cứng.', e);
-        }
-        
-        if (urls.length > 0) {
-          setFanpageUrls(urls);
-          setUrl(urls[0]); // Auto-select first url
-        }
-      } catch (error) {
-        console.error('Failed to set fanpage URLs', error);
-      } finally {
-        setIsLoadingUrls(false);
-      }
-    };
-
-    fetchFanpageUrls();
-  }, [isOpen]);
+    if (isOpen && !url && fanpageUrls.length > 0) {
+      setUrl(fanpageUrls[0]);
+    }
+  }, [isOpen, url, fanpageUrls]);
 
   if (!isOpen) return null;
 
@@ -207,12 +174,9 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
               <select
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                disabled={isLoadingUrls}
                 className="w-full border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none transition-all disabled:bg-stone-50 disabled:text-stone-400"
               >
-                {isLoadingUrls ? (
-                  <option value="">Đang tải danh sách...</option>
-                ) : fanpageUrls.length > 0 ? (
+                {fanpageUrls.length > 0 ? (
                   fanpageUrls.map((u, i) => (
                     <option key={i} value={u}>
                       {u}
