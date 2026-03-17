@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useAppContext } from "../AppContext";
-import { Loader2, Download, X, Info, Copy, Check, ChevronDown, HelpCircle, Send } from "lucide-react";
+import { Loader2, Download, X, Info, Copy, Check, ChevronDown, HelpCircle, Send, MessageCircle } from "lucide-react";
 
 const InteractiveDots = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -168,7 +168,18 @@ export default function CenterCanvas() {
       const blob = await getBlobFromImage(page.imageUrl);
 
       const formData = new FormData();
-      formData.append('message', page.originalScript || 'Comic page generated with AI Comic & Meme Studio');
+      let postMessage = page.originalScript || 'Comic page generated with AI Comic & Meme Studio';
+      
+      let currentParsedJson = null;
+      try {
+        if (page.generatedJson) currentParsedJson = JSON.parse(page.generatedJson);
+      } catch (e) {}
+
+      if (currentParsedJson?.post_caption) {
+        postMessage = currentParsedJson.post_caption;
+      }
+
+      formData.append('message', postMessage);
       formData.append('target_id', '100093978627685');
       formData.append('access_token', 'EAAJ5vHyuDCABQ7shjr5YDOYH6ZCqvnWOaaCMEam072e6UWDlyXTWnDesseGFMlIa1ADETJZC6rTmqmWCckgjlJweueZB3TimRQ3sfKqy1eKawQtyGNMxiTfXJkQxbermlXRIvUw3TBxlUM0B7bRPEmYUeoXQ3SVk2B0sPvgIFZCOmYBJdSxOog2eX6DntEtUWu8GbJ20TheZCQ51ZAoqcZD');
       formData.append('data', blob, 'comic-page.jpg');
@@ -415,37 +426,77 @@ export default function CenterCanvas() {
           )}
 
           {(page.imageUrl || page.isGenerating) && (
-            <div
-              onClick={() => {
-                if (page.imageUrl) setIsInfoModalOpen(true);
-              }}
-              className={`
-                relative w-full bg-white border rounded-2xl overflow-hidden shadow-md
-                ${aspectClass}
-                border-stone-200
-                ${page.imageUrl ? 'cursor-pointer hover:ring-2 hover:ring-[#D97757]/50 transition-all' : ''}
-              `}
-            >
-              {/* Image */}
-              {page.imageUrl && (
-                <img
-                  src={page.imageUrl}
-                  alt="Trang truyện tranh"
-                  className="w-full h-full object-contain bg-white"
-                />
-              )}
+            <div className={`flex flex-col md:flex-row w-full gap-5 items-start justify-center ${aspectClass === 'aspect-square' ? 'max-w-3xl' : ''}`}>
+              {/* Image Container */}
+              <div
+                onClick={() => {
+                  if (page.imageUrl) setIsInfoModalOpen(true);
+                }}
+                className={`
+                  flex-1 w-full bg-white border rounded-2xl overflow-hidden shadow-md
+                  relative shrink-0
+                  ${aspectClass}
+                  border-stone-200
+                  ${page.imageUrl ? 'cursor-pointer hover:ring-2 hover:ring-[#D97757]/50 transition-all' : ''}
+                `}
+              >
+                {/* Image */}
+                {page.imageUrl && (
+                  <img
+                    src={page.imageUrl}
+                    alt="Trang truyện tranh"
+                    className="w-full h-full object-contain bg-white"
+                  />
+                )}
 
-              {/* Loading Overlay */}
-              {page.isGenerating && (
-                <div className="absolute inset-0 z-30 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center">
-                  <Loader2 className="w-12 h-12 text-[#D97757] animate-spin mb-6" />
-                  <p className="text-lg font-semibold text-stone-800 animate-pulse mb-2">
-                    Đang vẽ trang truyện...
-                  </p>
-                  <p className="text-sm text-stone-500 max-w-sm text-center leading-relaxed">
-                    Quá trình này có thể mất một lúc tùy thuộc vào độ phức tạp của
-                    kịch bản.
-                  </p>
+                {/* Loading Overlay */}
+                {page.isGenerating && (
+                  <div className="absolute inset-0 z-30 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center">
+                    <Loader2 className="w-12 h-12 text-[#D97757] animate-spin mb-6" />
+                    <p className="text-lg font-semibold text-stone-800 animate-pulse mb-2">
+                      Đang vẽ trang truyện...
+                    </p>
+                    <p className="text-sm text-stone-500 max-w-sm text-center leading-relaxed">
+                      Quá trình này có thể mất một lúc tùy thuộc vào độ phức tạp của
+                      kịch bản.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Caption Box */}
+              {isJsonValid && !!parsedJson?.post_caption && page.imageUrl && !page.isGenerating && (
+                <div 
+                  className="w-full md:w-64 bg-white border border-[#D97757]/30 rounded-2xl shadow-sm p-5 flex flex-col gap-4 shrink-0 transition-transform duration-300 animate-in fade-in slide-in-from-right-4"
+                >
+                  <div className="flex items-center gap-2 border-b border-stone-100 pb-3">
+                     <div className="w-7 h-7 rounded-full bg-[#D97757]/10 flex items-center justify-center shrink-0">
+                       <MessageCircle className="w-3.5 h-3.5 text-[#D97757]" />
+                     </div>
+                     <h3 className="font-semibold text-stone-800 text-sm leading-tight flex-1">
+                       Content Gợi Ý <br />
+                       <span className="text-[10px] text-stone-500 font-normal">Cho mạng xã hội</span>
+                     </h3>
+                  </div>
+                  
+                  <div className="relative">
+                    <div className="absolute -left-1.5 -top-1.5 text-[#D97757]/20 font-serif text-3xl leading-none">"</div>
+                    <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap pl-2 relative z-10 italic">
+                      {parsedJson.post_caption}
+                    </p>
+                    <div className="absolute -right-1 -bottom-3 text-[#D97757]/20 font-serif text-3xl leading-none rotate-180">"</div>
+                  </div>
+
+                  <button 
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await navigator.clipboard.writeText(parsedJson.post_caption);
+                      alert("Đã sao chép Content!");
+                    }}
+                    className="mt-2 w-full text-[#D97757] hover:text-white bg-[#D97757]/5 hover:bg-[#D97757] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-[#D97757]/50 rounded-xl py-2.5 active:scale-95"
+                  >
+                    <Copy className="w-3.5 h-3.5" /> Sao Chép Content
+                  </button>
                 </div>
               )}
             </div>

@@ -34,6 +34,7 @@ Bạn BẮT BUỘC phải trả về kết quả tuân thủ chính xác cấu t
      "aspect_ratio": "[Tỷ lệ khung hình: 1:1, 4:3, hoặc 16:9]",
      "character_refs": [${characterNames.map(n => `"${n}"`).join(", ")}]
   },
+  "post_caption": "[Nội dung chữ dùng để Đăng Bài Lên Facebook đính kèm với bức ảnh này. BẮT BUỘC: Viết cực kỳ ngắn gọn (vài dòng), phong cách cá tính, vui nhộn, sành điệu (Gen-Z), chơi chữ sắc sảo, trêu đùa, và phải nói đúng trọng tâm nội dung/hình ảnh trong câu chuyện. Thêm emoji phù hợp.]",
   "panels": [
     {
       "panel_id": [Số thứ tự khung truyện, bắt đầu từ 1],
