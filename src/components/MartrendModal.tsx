@@ -34,6 +34,40 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
   const [scanStatus, setScanStatus] = useState('');
   const [results, setResults] = useState<FacebookPost[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
+  
+  const [fanpageUrls, setFanpageUrls] = useState<string[]>([]);
+  const [isLoadingUrls, setIsLoadingUrls] = useState(false);
+
+  React.useEffect(() => {
+    const fetchFanpageUrls = async () => {
+      if (!isOpen) return;
+      setIsLoadingUrls(true);
+      try {
+        const res = await fetch('https://n8n.tbsupellex.com/webhook/71aee092-d6ff-4dc3-9c86-1bddee35ba70');
+        if (res.ok) {
+          const data = await res.json();
+          // Kiểm tra xem data trả về là mảng trực tiếp hay nằm trong thuộc tính nào
+          let urls: string[] = [];
+          if (Array.isArray(data)) {
+            urls = data;
+          } else if (data && typeof data === 'object') {
+            urls = data.urls || data.data || [];
+          }
+          
+          if (urls.length > 0) {
+            setFanpageUrls(urls);
+            setUrl(urls[0]); // Auto-select first url
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch fanpage URLs', error);
+      } finally {
+        setIsLoadingUrls(false);
+      }
+    };
+
+    fetchFanpageUrls();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -135,7 +169,7 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] md:max-w-7xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-5 border-b border-stone-100 shrink-0 bg-stone-50/50">
           <div className="flex items-center gap-3">
             <div className="bg-[#D97757]/10 p-2.5 rounded-xl text-[#D97757]">
@@ -159,13 +193,24 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
           <div className="w-full md:w-80 shrink-0 border-r border-stone-100 p-5 flex flex-col gap-5 bg-white overflow-y-auto">
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1.5">Link Fanpage Facebook</label>
-              <input 
-                type="text" 
+              <select
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="Ví dụ: https://facebook.com/thobaymau"
-                className="w-full border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none transition-all"
-              />
+                disabled={isLoadingUrls}
+                className="w-full border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none transition-all disabled:bg-stone-50 disabled:text-stone-400"
+              >
+                {isLoadingUrls ? (
+                  <option value="">Đang tải danh sách...</option>
+                ) : fanpageUrls.length > 0 ? (
+                  fanpageUrls.map((u, i) => (
+                    <option key={i} value={u}>
+                      {u}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Không có link khả dụng</option>
+                )}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1.5">Từ ngày</label>
