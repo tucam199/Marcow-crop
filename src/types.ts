@@ -11,6 +11,8 @@ export interface GlobalSettings {
   aspectRatio: string;
   artStyle: string;
   script: string;
+  dialogues: string[];
+  postCaption?: string;
 }
 
 export interface PageData {
@@ -20,4 +22,14 @@ export interface PageData {
   originalScript?: string;
   generatedJson?: string;
   postCaption?: string;
+  isAutoGeneratingImage?: boolean;
+  isAutoPostingFB?: boolean;
+  isAutoProcessing?: boolean;
+  autoProcessMessage?: string;
+}
+
+export interface UserProfile {
+  name: string;
+  avatarUrl: string;
+  autoSaveImages: boolean;
 }

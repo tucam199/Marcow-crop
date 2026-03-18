@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useAppContext } from "../AppContext";
-import { generateScriptFromImage } from "../services/gemini";
+import { useAppContext } from "../../../AppContext";
+import { generateScriptFromImage } from "../../../services/gemini";
 import MartrendModal from "./MartrendModal";
 import {
   Settings,
@@ -102,7 +102,31 @@ export default function LeftSidebar() {
           const mimeType = prefix.match(/:(.*?);/)?.[1] || "image/png";
 
           const scriptJson = await generateScriptFromImage({ mimeType, data }, settings.characters, textContext);
-          setSettings((prev) => ({ ...prev, script: scriptJson }));
+          
+          let parsedDialogues: string[] = [""];
+          let displayScript = scriptJson;
+          
+          try {
+            const cleanJson = scriptJson.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+            const parsed = JSON.parse(cleanJson);
+            if (parsed.panels && Array.isArray(parsed.panels)) {
+              parsedDialogues = parsed.panels.map((p: any) => p.dialogue || "");
+              if (parsedDialogues.length === 0) parsedDialogues = [""];
+              
+              const cleanedPanels = parsed.panels.map((p: any) => {
+                const newP = { ...p };
+                delete newP.dialogue;
+                return newP;
+              });
+              
+              parsed.panels = cleanedPanels;
+              displayScript = JSON.stringify(parsed, null, 2);
+            }
+          } catch (err) {
+            console.error("Could not parse scriptJson to extract dialogues", err);
+          }
+
+          setSettings((prev) => ({ ...prev, script: displayScript, dialogues: parsedDialogues }));
         } catch (error: any) {
           console.error("Failed to generate script:", error);
           if (
@@ -140,7 +164,31 @@ export default function LeftSidebar() {
           const mimeType = prefix.match(/:(.*?);/)?.[1] || "image/png";
 
           const scriptJson = await generateScriptFromImage({ mimeType, data }, settings.characters);
-          setSettings((prev) => ({ ...prev, script: scriptJson }));
+          
+          let parsedDialogues: string[] = [""];
+          let displayScript = scriptJson;
+          
+          try {
+            const cleanJson = scriptJson.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+            const parsed = JSON.parse(cleanJson);
+            if (parsed.panels && Array.isArray(parsed.panels)) {
+              parsedDialogues = parsed.panels.map((p: any) => p.dialogue || "");
+              if (parsedDialogues.length === 0) parsedDialogues = [""];
+              
+              const cleanedPanels = parsed.panels.map((p: any) => {
+                const newP = { ...p };
+                delete newP.dialogue;
+                return newP;
+              });
+              
+              parsed.panels = cleanedPanels;
+              displayScript = JSON.stringify(parsed, null, 2);
+            }
+          } catch (err) {
+            console.error("Could not parse scriptJson to extract dialogues", err);
+          }
+
+          setSettings((prev) => ({ ...prev, script: displayScript, dialogues: parsedDialogues }));
         } catch (error: any) {
           console.error("Failed to generate script:", error);
           if (
@@ -258,8 +306,8 @@ export default function LeftSidebar() {
             value={settings.script}
             onChange={(e) => setSettings({ ...settings, script: e.target.value })}
             disabled={isGeneratingScript}
-            placeholder="Nhập kịch bản truyện của bạn vào đây. Mô tả các sự kiện, hội thoại và hành động. AI sẽ tạo ra một trang truyện hoàn chỉnh dựa trên kịch bản này..."
-            className="w-full bg-white border border-stone-200 rounded-xl p-4 pb-14 text-sm text-stone-800 focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none resize-none h-[320px] placeholder:text-stone-400 leading-relaxed disabled:bg-stone-50 disabled:text-stone-500"
+            placeholder="Nhập kịch bản truyện phần hình ảnh. Mô tả các sự kiện, khung cảnh và hành động. (Không nhập phần thoại ở đây)"
+            className="w-full bg-white border border-stone-200 rounded-xl p-4 pb-14 text-sm text-stone-800 focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none resize-none h-[180px] placeholder:text-stone-400 leading-relaxed disabled:bg-stone-50 disabled:text-stone-500"
           />
           <div className="absolute bottom-4 right-4 bg-white rounded-lg">
             <button
@@ -276,6 +324,48 @@ export default function LeftSidebar() {
               {isGeneratingScript ? "Đang xử lý..." : "Ảnh tham khảo"}
             </button>
           </div>
+        </div>
+
+        {/* Cột Dialogue cho từng khung */}
+        <div className="mt-4 flex flex-col gap-2.5 bg-stone-50/50 p-4 rounded-xl border border-stone-100">
+          <label className="text-[13px] font-semibold text-stone-700">Thoại cho từng khung (tùy chọn)</label>
+          <div className="flex flex-col gap-2.5">
+            {(settings.dialogues || [""]).map((dialogue, idx) => (
+              <div key={idx} className="flex items-center gap-2 group">
+                <span className="text-[11px] font-medium text-stone-500 w-[55px] shrink-0">Khung {idx + 1}:</span>
+                <input
+                  type="text"
+                  value={dialogue}
+                  onChange={(e) => {
+                    const newDialogues = [...(settings.dialogues || [""])];
+                    newDialogues[idx] = e.target.value;
+                    setSettings({ ...settings, dialogues: newDialogues });
+                  }}
+                  disabled={isGeneratingScript}
+                  placeholder={`Nhập thoại cho khung ${idx + 1}...`}
+                  className="flex-1 bg-white border border-stone-200 rounded-lg px-3.5 py-2.5 text-sm text-stone-800 focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none placeholder:text-stone-400 transition-all shadow-sm"
+                />
+                <button
+                  onClick={() => {
+                    const newDialogues = [...(settings.dialogues || [""])];
+                    newDialogues.splice(idx, 1);
+                    setSettings({ ...settings, dialogues: newDialogues });
+                  }}
+                  className="text-stone-300 hover:text-red-500 transition-colors p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  disabled={(settings.dialogues || [""]).length === 1}
+                  title="Xóa thoại khung này"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setSettings({ ...settings, dialogues: [...(settings.dialogues || [""]), ""] })}
+            className="text-[13px] text-[#D97757] font-medium hover:text-[#C66545] transition-colors self-start pb-1"
+          >
+            + Thêm thoại cho khung tiếp theo
+          </button>
         </div>
       </div>
 

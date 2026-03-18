@@ -1,10 +1,19 @@
 import { AppProvider, useAppContext } from "./AppContext";
-import LeftSidebar from "./components/LeftSidebar";
-import RightSidebar from "./components/RightSidebar";
-import CenterCanvas from "./components/CenterCanvas";
+import Login from "./components/Login";
+import AppSelector from "./components/AppSelector";
+import MarcowApp from "./apps/marcow";
+import MarcowN8nApp from "./apps/marcow-n8n";
 
 function AppContent() {
-  const { hasKey, handleSelectKey } = useAppContext();
+  const { hasKey, handleSelectKey, isAuthenticated, selectedApp, setSelectedApp } = useAppContext();
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  if (!selectedApp) {
+    return <AppSelector onSelect={setSelectedApp} />;
+  }
 
   if (hasKey === null) {
     return (
@@ -47,13 +56,11 @@ function AppContent() {
     );
   }
 
-  return (
-    <div className="h-screen w-full flex bg-[#FAF9F6] text-[#2D2D2D] font-sans overflow-hidden">
-      <LeftSidebar />
-      <CenterCanvas />
-      <RightSidebar />
-    </div>
-  );
+  if (selectedApp === 'marcow') {
+    return <MarcowApp />;
+  }
+
+  return <MarcowN8nApp />;
 }
 
 export default function App() {

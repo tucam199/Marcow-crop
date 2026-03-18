@@ -5,7 +5,8 @@ import React, {
   ReactNode,
   useEffect,
 } from "react";
-import { GlobalSettings, Character, PageData } from "./types";
+import { GlobalSettings, Character, PageData, UserProfile } from "./types";
+import { CheckCircle, Info } from "lucide-react";
 
 declare global {
   interface Window {
@@ -23,19 +24,53 @@ interface AppState {
   setCharacters: React.Dispatch<React.SetStateAction<Character[]>>;
   page: PageData;
   setPage: React.Dispatch<React.SetStateAction<PageData>>;
+  isAuthenticated: boolean;
+  setIsAuthenticated: (value: boolean) => void;
+  selectedApp: 'marcow' | 'marcow_n8n' | null;
+  setSelectedApp: (value: 'marcow' | 'marcow_n8n' | null) => void;
+  userProfile: UserProfile;
+  setUserProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
+  directoryHandle: any;
+  setDirectoryHandle: React.Dispatch<any>;
   hasKey: boolean | null;
   handleSelectKey: () => Promise<void>;
   resetKey: () => void;
+  showToast: (msg: string, type?: 'success' | 'info') => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem("auth") === "true";
+  });
+  const [selectedApp, setSelectedApp] = useState<'marcow' | 'marcow_n8n' | null>(() => {
+    return localStorage.getItem("selectedApp") as 'marcow' | 'marcow_n8n' | null;
+  });
   const [hasKey, setHasKey] = useState<boolean | null>(null);
+  const [toastConfig, setToastConfig] = useState<{message: string, type: 'success' | 'info'} | null>(null);
+  const [directoryHandle, setDirectoryHandle] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem("userProfile");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // Fallback
+      }
+    }
+    return {
+      name: "Tuta",
+      avatarUrl: "https://ui-avatars.com/api/?name=Tuta&background=D97757&color=fff",
+      autoSaveImages: false,
+    };
+  });
   const [settings, setSettings] = useState<GlobalSettings>({
     aspectRatio: "1:1",
     artStyle: "Thỏ Bảy Màu",
     script: "",
+    dialogues: [""],
+    postCaption: "",
   });
   const [characters, setCharacters] = useState<Character[]>([]);
   const [page, setPage] = useState<PageData>({
@@ -43,6 +78,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     isGenerating: false,
     characterRefIds: [],
   });
+
+  useEffect(() => {
+    localStorage.setItem("userProfile", JSON.stringify(userProfile));
+  }, [userProfile]);
 
   useEffect(() => {
     async function checkKey() {
@@ -67,6 +106,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setHasKey(false);
   };
 
+  const showToast = (msg: string, type: 'success' | 'info' = 'success') => {
+    setToastConfig({ message: msg, type });
+    setTimeout(() => {
+      setToastConfig(null);
+    }, 3000);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -76,12 +122,40 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCharacters,
         page,
         setPage,
+        isAuthenticated,
+        setIsAuthenticated: (val) => {
+          setIsAuthenticated(val);
+          localStorage.setItem("auth", val.toString());
+          if (!val) {
+            setSelectedApp(null);
+            localStorage.removeItem("selectedApp");
+          }
+        },
+        selectedApp,
+        setSelectedApp: (val) => {
+          setSelectedApp(val);
+          if (val) localStorage.setItem("selectedApp", val);
+          else localStorage.removeItem("selectedApp");
+        },
+        userProfile,
+        setUserProfile,
+        directoryHandle,
+        setDirectoryHandle,
         hasKey,
         handleSelectKey,
         resetKey,
+        showToast,
       }}
     >
       {children}
+      {toastConfig && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border ${toastConfig.type === 'success' ? 'bg-green-50 text-green-800 border-green-200' : 'bg-blue-50 text-blue-800 border-blue-200'}`}>
+            {toastConfig.type === 'success' ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Info className="w-5 h-5 text-blue-500" />}
+            <span className="text-sm font-medium pr-2">{toastConfig.message}</span>
+          </div>
+        </div>
+      )}
     </AppContext.Provider>
   );
 };

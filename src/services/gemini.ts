@@ -34,7 +34,6 @@ Bạn BẮT BUỘC phải trả về kết quả tuân thủ chính xác cấu t
      "aspect_ratio": "[Tỷ lệ khung hình: 1:1, 4:3, hoặc 16:9]",
      "character_refs": [${characterNames.map(n => `"${n}"`).join(", ")}]
   },
-  "post_caption": "[Nội dung chữ dùng để Đăng Bài Lên Facebook đính kèm với bức ảnh này. BẮT BUỘC: Viết cực kỳ ngắn gọn (vài dòng), phong cách cá tính, vui nhộn, sành điệu (Gen-Z), chơi chữ sắc sảo, trêu đùa, và phải nói đúng trọng tâm nội dung/hình ảnh trong câu chuyện. Thêm emoji phù hợp.]",
   "panels": [
     {
       "panel_id": [Số thứ tự khung truyện, bắt đầu từ 1],
@@ -180,4 +179,35 @@ export async function generatePanelImage(
     }
   }
   throw new Error("No image generated");
+}
+
+export async function generatePostCaptionFromImage(
+  imageDataUrl: string,
+  script?: string
+) {
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("API key is missing");
+  }
+  const ai = new GoogleGenAI({ apiKey });
+
+  const match = imageDataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+  if (!match) return "";
+  const mimeType = match[1];
+  const data = match[2];
+
+  const scriptPrompt = script ? `\n\n[KỊCH BẢN THAM KHẢO]\n${script}` : "";
+  const prompt = `Bạn là một nhà sáng tạo nội dung mạng xã hội (Social Media Creator) sành điệu (Gen-Z), hài hước và rất bắt trend. Dựa vào bức ảnh truyện tranh vừa được tạo ở trên${scriptPrompt}, hãy viết một Nội dung chữ (Post caption) siêu thu hút để Đăng Bài Lên Facebook. BẮT BUỘC: Viết siêu ngắn gọn (1-3 dòng), đánh trúng tâm lý, vui nhộn, chơi chữ sắc sảo, trêu đùa, hoặc cực kỳ triết lý và liên quan mật thiết đến tình huống trong bức ảnh. Thêm 1-2 emoji hợp lý. KẾT QUẢ TRẢ VỀ CHỈ CHỨA NỘI DUNG CAPTION, KHÔNG GIẢI THÍCH, KHÔNG CHÀO HỎI, KHÔNG BAO GỒM DẤU NGOẶC KÉP QUANH KẾT QUẢ.`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3.1-pro-preview",
+    contents: {
+      parts: [
+        { inlineData: { mimeType, data } },
+        { text: prompt }
+      ]
+    }
+  });
+
+  return response.text;
 }

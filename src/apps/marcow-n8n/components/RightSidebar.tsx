@@ -1,12 +1,21 @@
 import React, { useRef } from "react";
-import { useAppContext } from "../AppContext";
-import { generatePanelImage, generateImagePromptsFromJson, generatePostCaptionFromImage } from "../services/gemini";
+import { useAppContext } from "../../../AppContext";
+import { generatePanelImage, generateImagePromptsFromJson, generatePostCaptionFromImage } from "../../../services/gemini";
 import { Wand2, Loader2, Image as ImageIcon, Upload, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 
 export default function RightSidebar() {
-  const { settings, characters, setCharacters, page, setPage, resetKey } = useAppContext();
+  const { settings, characters, setCharacters, page, setPage, resetKey, userProfile, directoryHandle, showToast } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasInitialized = React.useRef(false);
+
+  React.useEffect(() => {
+    if (page.isAutoGeneratingImage && settings.script && !page.isGenerating) {
+      setTimeout(() => {
+        setPage(prev => ({ ...prev, isAutoGeneratingImage: false }));
+        handleGenerate();
+      }, 500);
+    }
+  }, [page.isAutoGeneratingImage, settings.script, page.isGenerating]);
 
   React.useEffect(() => {
     if (!hasInitialized.current && characters.length === 0) {
@@ -145,9 +154,20 @@ export default function RightSidebar() {
         page.characterRefIds.includes(c.id),
       );
 
+      let combinedScript = settings.script;
+      const validDialogues = (settings.dialogues || []).map(d => d.trim()).filter(d => d !== "");
+      if (validDialogues.length > 0) {
+        combinedScript += "\n\n=== THOẠI CHO TỪNG KHUNG ===\n";
+        (settings.dialogues || []).forEach((d, idx) => {
+          if (d.trim() !== "") {
+            combinedScript += `Khung ${idx + 1}: "${d.trim()}"\n`;
+          }
+        });
+      }
+
       // 1. Generate the JSON prompts from the script
       const generatedJsonStr = await generateImagePromptsFromJson(
-        settings.script,
+        combinedScript,
         settings.artStyle,
         settings.aspectRatio,
         selectedChars
@@ -186,7 +206,7 @@ export default function RightSidebar() {
 
       let extractedCaption = "";
       try {
-        extractedCaption = await generatePostCaptionFromImage(imageUrl, settings.script);
+        extractedCaption = await generatePostCaptionFromImage(imageUrl, combinedScript);
       } catch (e) {
         console.error("Failed to generate caption:", e);
       }
@@ -195,10 +215,36 @@ export default function RightSidebar() {
         ...prev, 
         imageUrl, 
         isGenerating: false,
-        originalScript: settings.script,
+        originalScript: combinedScript,
         generatedJson: generatedJsonStr,
         postCaption: extractedCaption,
+        ...(prev.isAutoPostingFB ? { autoProcessMessage: "Vẽ xong! Đang kết nối lên Facebook Fanpage..." } : {})
       }));
+
+      // Auto save
+      if (userProfile.autoSaveImages && imageUrl) {
+        try {
+          if (directoryHandle) {
+            const fileName = `comic-page-${Date.now()}.png`;
+            const fileHandle = await directoryHandle.getFileHandle(fileName, { create: true });
+            const writable = await fileHandle.createWritable();
+            const res = await fetch(imageUrl);
+            const blob = await res.blob();
+            await writable.write(blob);
+            await writable.close();
+            showToast(`Đã tự động lưu vào "${directoryHandle.name}"`, 'success');
+          } else {
+            const a = document.createElement("a");
+            a.href = imageUrl;
+            a.download = `comic-page-${Date.now()}.png`;
+            a.click();
+            showToast("Đã tự động lưu ảnh về máy (Downloads)", 'success');
+          }
+        } catch (saveError) {
+          console.error("Auto save error:", saveError);
+          showToast("Lỗi khi lưu ảnh tự động!", 'info');
+        }
+      }
     } catch (error: any) {
       console.error("Failed to generate image:", error);
       if (
@@ -210,7 +256,7 @@ export default function RightSidebar() {
       } else {
         alert("Tạo ảnh thất bại. Vui lòng kiểm tra API key và thử lại.");
       }
-      setPage((prev) => ({ ...prev, isGenerating: false }));
+      setPage((prev) => ({ ...prev, isGenerating: false, isAutoProcessing: false, isAutoPostingFB: false }));
     }
   };
 

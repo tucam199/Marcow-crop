@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useAppContext } from "../AppContext";
-import { Loader2, Download, X, Info, Copy, Check, ChevronDown, HelpCircle, Send, MessageCircle, LogOut } from "lucide-react";
+import { useAppContext } from "../../../AppContext";
+import { Loader2, Download, X, Info, Copy, Check, ChevronDown, HelpCircle, Send, MessageCircle, LogOut, ArrowLeft } from "lucide-react";
 
 const InteractiveDots = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -102,7 +102,7 @@ const InteractiveDots = () => {
 };
 
 export default function CenterCanvas() {
-  const { settings, page, characters, setPage, setIsAuthenticated } = useAppContext();
+  const { settings, setSettings, page, setPage, characters, setCharacters, setIsAuthenticated, setSelectedApp } = useAppContext();
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [currentGuideStep, setCurrentGuideStep] = useState(0);
@@ -111,6 +111,16 @@ export default function CenterCanvas() {
   const [isPosting, setIsPosting] = useState(false);
   const [postSuccess, setPostSuccess] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isBackModalOpen, setIsBackModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (page.isAutoPostingFB && page.imageUrl && !page.isGenerating && !isPosting) {
+      setTimeout(() => {
+        setPage(prev => ({ ...prev, isAutoPostingFB: false }));
+        handlePostToFacebook();
+      }, 1000);
+    }
+  }, [page.isAutoPostingFB, page.imageUrl, page.isGenerating, isPosting]);
 
   const handlePostToFacebook = async () => {
     if (!page.imageUrl) return;
@@ -194,6 +204,7 @@ export default function CenterCanvas() {
       alert(`Có lỗi xảy ra khi kết nối: ${error.message || 'Không rõ nguyên nhân'}\nVui lòng ấn F12 -> Console để xem chi tiết.`);
     } finally {
       setIsPosting(false);
+      setPage(prev => ({ ...prev, isAutoProcessing: false }));
     }
   };
 
@@ -345,7 +356,13 @@ export default function CenterCanvas() {
     <div className="flex-1 bg-[#FAF9F6] relative overflow-hidden flex flex-col items-center">
       <InteractiveDots />
       
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-3">
+        <button 
+          onClick={() => setIsBackModalOpen(true)}
+          className="text-stone-500 hover:text-stone-700 bg-white/50 hover:bg-white px-4 py-2 rounded-xl text-sm font-medium border border-stone-200 shadow-sm transition-all flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" /> Quay lại
+        </button>
         <button 
           onClick={() => setIsLogoutModalOpen(true)}
           className="text-stone-500 hover:text-red-600 bg-white/50 hover:bg-white px-4 py-2 rounded-xl text-sm font-medium border border-stone-200 shadow-sm transition-all flex items-center gap-2"
@@ -677,6 +694,53 @@ export default function CenterCanvas() {
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-xl transition-colors shadow-sm"
               >
                 Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Back Modal */}
+      {isBackModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center p-8 gap-4">
+              <div className="w-12 h-12 rounded-full bg-[#D97757]/10 flex items-center justify-center text-[#D97757] mb-2">
+                <ArrowLeft className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-semibold text-stone-800">Xác nhận quay lại</h3>
+              <p className="text-sm text-stone-500 leading-relaxed">
+                Bạn có chắc chắn muốn quay lại bước Chọn Ứng dụng không? Toàn bộ thiết lập và dữ liệu truyện chưa lưu sẽ bị xóa để đảm bảo trải nghiệm mới.
+              </p>
+            </div>
+            
+            <div className="flex gap-3 p-4 bg-stone-50 border-t border-stone-100">
+              <button
+                onClick={() => setIsBackModalOpen(false)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 rounded-xl transition-colors shadow-sm"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={() => {
+                  setSettings({
+                    aspectRatio: "1:1",
+                    artStyle: "Thỏ Bảy Màu",
+                    script: "",
+                    dialogues: [""],
+                    postCaption: "",
+                  });
+                  setCharacters([]);
+                  setPage({
+                    imageUrl: null,
+                    isGenerating: false,
+                    characterRefIds: [],
+                  });
+                  setSelectedApp(null);
+                }}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-[#D97757] hover:bg-[#c66547] rounded-xl transition-colors shadow-sm"
+              >
+                Quay lại
               </button>
             </div>
           </div>

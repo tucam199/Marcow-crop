@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useAppContext } from "../AppContext";
-import { generateScriptFromImage } from "../services/gemini";
+import { useAppContext } from "../../../AppContext";
+import { generateScriptFromImage } from "../../../services/gemini";
 import MartrendModal from "./MartrendModal";
 import {
   Settings,
@@ -82,15 +82,28 @@ const ASPECT_RATIOS = [
 ];
 
 export default function LeftSidebar() {
-  const { settings, setSettings, resetKey } = useAppContext();
+  const { settings, setSettings, resetKey, setPage, page } = useAppContext();
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [isMartrendOpen, setIsMartrendOpen] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [confirmOverride, setConfirmOverride] = useState<{ isOpen: boolean; data: any }>({ isOpen: false, data: null });
   const scriptFileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSelectMartrendImage = async (imageUrl: string, textContext?: string) => {
+  const startMartrendProcessing = async (imageUrl: string, textContext?: string, isAutoPost?: boolean) => {
     setIsMartrendOpen(false);
-    setIsGeneratingScript(true);
+    
+    // Clear old state before starting
+    if (page.imageUrl || settings.script) {
+      setPage(prev => ({ ...prev, imageUrl: null, generatedJson: "", originalScript: "", postCaption: "", characterRefIds: [] }));
+      setSettings(prev => ({ ...prev, script: "", dialogues: [] }));
+    }
+
+    if (isAutoPost) {
+      setPage(prev => ({ ...prev, isAutoProcessing: true, autoProcessMessage: "Đang AI hoá kịch bản từ hình ảnh Facebook..." }));
+    } else {
+      setIsGeneratingScript(true);
+    }
+    
     try {
       const response = await fetch(imageUrl);
       const blob = await response.blob();
@@ -102,7 +115,40 @@ export default function LeftSidebar() {
           const mimeType = prefix.match(/:(.*?);/)?.[1] || "image/png";
 
           const scriptJson = await generateScriptFromImage({ mimeType, data }, settings.characters, textContext);
-          setSettings((prev) => ({ ...prev, script: scriptJson }));
+          
+          let parsedDialogues: string[] = [""];
+          let displayScript = scriptJson;
+          
+          try {
+            const cleanJson = scriptJson.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+            const parsed = JSON.parse(cleanJson);
+            if (parsed.panels && Array.isArray(parsed.panels)) {
+              parsedDialogues = parsed.panels.map((p: any) => p.dialogue || "");
+              if (parsedDialogues.length === 0) parsedDialogues = [""];
+              
+              const cleanedPanels = parsed.panels.map((p: any) => {
+                const newP = { ...p };
+                delete newP.dialogue;
+                return newP;
+              });
+              
+              parsed.panels = cleanedPanels;
+              displayScript = JSON.stringify(parsed, null, 2);
+            }
+          } catch (err) {
+            console.error("Could not parse scriptJson to extract dialogues", err);
+          }
+
+          setSettings((prev) => ({ ...prev, script: displayScript, dialogues: parsedDialogues }));
+          
+          if (isAutoPost) {
+            setPage(prev => ({ 
+              ...prev, 
+              isAutoGeneratingImage: true, 
+              isAutoPostingFB: true,
+              autoProcessMessage: "Phân tích xong! Đang vẽ thành truyện tranh..."
+            }));
+          }
         } catch (error: any) {
           console.error("Failed to generate script:", error);
           if (
@@ -114,15 +160,30 @@ export default function LeftSidebar() {
           } else {
             alert("Tạo kịch bản thất bại. Vui lòng kiểm tra API key và thử lại.");
           }
-        } finally {
-          setIsGeneratingScript(false);
+          if (isAutoPost) {
+            setPage(prev => ({ ...prev, isAutoProcessing: false }));
+          } else {
+            setIsGeneratingScript(false);
+          }
         }
       };
       reader.readAsDataURL(blob);
     } catch (error) {
       console.error("Failed to fetch image:", error);
       alert("Không thể tải hình ảnh. Vui lòng thử lại.");
-      setIsGeneratingScript(false);
+      if (isAutoPost) {
+        setPage(prev => ({ ...prev, isAutoProcessing: false }));
+      } else {
+        setIsGeneratingScript(false);
+      }
+    }
+  };
+
+  const handleSelectMartrendImage = (imageUrl: string, textContext?: string, isAutoPost?: boolean) => {
+    if (page.imageUrl || settings.script) {
+      setConfirmOverride({ isOpen: true, data: { imageUrl, textContext, isAutoPost } });
+    } else {
+      startMartrendProcessing(imageUrl, textContext, isAutoPost);
     }
   };
 
@@ -140,7 +201,31 @@ export default function LeftSidebar() {
           const mimeType = prefix.match(/:(.*?);/)?.[1] || "image/png";
 
           const scriptJson = await generateScriptFromImage({ mimeType, data }, settings.characters);
-          setSettings((prev) => ({ ...prev, script: scriptJson }));
+          
+          let parsedDialogues: string[] = [""];
+          let displayScript = scriptJson;
+          
+          try {
+            const cleanJson = scriptJson.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+            const parsed = JSON.parse(cleanJson);
+            if (parsed.panels && Array.isArray(parsed.panels)) {
+              parsedDialogues = parsed.panels.map((p: any) => p.dialogue || "");
+              if (parsedDialogues.length === 0) parsedDialogues = [""];
+              
+              const cleanedPanels = parsed.panels.map((p: any) => {
+                const newP = { ...p };
+                delete newP.dialogue;
+                return newP;
+              });
+              
+              parsed.panels = cleanedPanels;
+              displayScript = JSON.stringify(parsed, null, 2);
+            }
+          } catch (err) {
+            console.error("Could not parse scriptJson to extract dialogues", err);
+          }
+
+          setSettings((prev) => ({ ...prev, script: displayScript, dialogues: parsedDialogues }));
         } catch (error: any) {
           console.error("Failed to generate script:", error);
           if (
@@ -185,13 +270,45 @@ export default function LeftSidebar() {
         </button>
       </div>
 
-      <MartrendModal 
-        isOpen={isMartrendOpen} 
-        onClose={() => setIsMartrendOpen(false)} 
-        onSelectImage={handleSelectMartrendImage} 
-      />
+        <MartrendModal 
+          isOpen={isMartrendOpen} 
+          onClose={() => setIsMartrendOpen(false)} 
+          onSelectImage={handleSelectMartrendImage} 
+        />
 
-      {isStyleModalOpen && (
+        {confirmOverride.isOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+              <h3 className="text-xl font-semibold text-stone-800">Tạo trang truyện mới?</h3>
+              <p className="text-sm text-stone-600">
+                Bạn đang có một trang truyện hiện tại chưa được lưu. Nếu tạo mới, các dữ liệu kịch bản và hình ảnh hiện tại sẽ bị xóa. Bạn có muốn tiếp tục không?
+              </p>
+              <div className="flex gap-3 justify-end mt-2">
+                <button
+                  onClick={() => setConfirmOverride({ isOpen: false, data: null })}
+                  className="px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-xl transition-colors"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  onClick={() => {
+                    setConfirmOverride({ isOpen: false, data: null });
+                    startMartrendProcessing(
+                      confirmOverride.data.imageUrl, 
+                      confirmOverride.data.textContext, 
+                      confirmOverride.data.isAutoPost
+                    );
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-[#D97757] hover:bg-[#C66545] rounded-xl transition-colors shadow-sm"
+                >
+                  Đồng ý tạo mới
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isStyleModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-6 border-b border-stone-100">
@@ -258,8 +375,8 @@ export default function LeftSidebar() {
             value={settings.script}
             onChange={(e) => setSettings({ ...settings, script: e.target.value })}
             disabled={isGeneratingScript}
-            placeholder="Nhập kịch bản truyện của bạn vào đây. Mô tả các sự kiện, hội thoại và hành động. AI sẽ tạo ra một trang truyện hoàn chỉnh dựa trên kịch bản này..."
-            className="w-full bg-white border border-stone-200 rounded-xl p-4 pb-14 text-sm text-stone-800 focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none resize-none h-[320px] placeholder:text-stone-400 leading-relaxed disabled:bg-stone-50 disabled:text-stone-500"
+            placeholder="Nhập kịch bản truyện phần hình ảnh. Mô tả các sự kiện, khung cảnh và hành động. (Không nhập phần thoại ở đây)"
+            className="w-full bg-white border border-stone-200 rounded-xl p-4 pb-14 text-sm text-stone-800 focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none resize-none h-[180px] placeholder:text-stone-400 leading-relaxed disabled:bg-stone-50 disabled:text-stone-500"
           />
           <div className="absolute bottom-4 right-4 bg-white rounded-lg">
             <button
@@ -276,6 +393,48 @@ export default function LeftSidebar() {
               {isGeneratingScript ? "Đang xử lý..." : "Ảnh tham khảo"}
             </button>
           </div>
+        </div>
+
+        {/* Cột Dialogue cho từng khung */}
+        <div className="mt-4 flex flex-col gap-2.5 bg-stone-50/50 p-4 rounded-xl border border-stone-100">
+          <label className="text-[13px] font-semibold text-stone-700">Thoại cho từng khung (tùy chọn)</label>
+          <div className="flex flex-col gap-2.5">
+            {(settings.dialogues || [""]).map((dialogue, idx) => (
+              <div key={idx} className="flex items-center gap-2 group">
+                <span className="text-[11px] font-medium text-stone-500 w-[55px] shrink-0">Khung {idx + 1}:</span>
+                <input
+                  type="text"
+                  value={dialogue}
+                  onChange={(e) => {
+                    const newDialogues = [...(settings.dialogues || [""])];
+                    newDialogues[idx] = e.target.value;
+                    setSettings({ ...settings, dialogues: newDialogues });
+                  }}
+                  disabled={isGeneratingScript}
+                  placeholder={`Nhập thoại cho khung ${idx + 1}...`}
+                  className="flex-1 bg-white border border-stone-200 rounded-lg px-3.5 py-2.5 text-sm text-stone-800 focus:ring-2 focus:ring-[#D97757]/20 focus:border-[#D97757] outline-none placeholder:text-stone-400 transition-all shadow-sm"
+                />
+                <button
+                  onClick={() => {
+                    const newDialogues = [...(settings.dialogues || [""])];
+                    newDialogues.splice(idx, 1);
+                    setSettings({ ...settings, dialogues: newDialogues });
+                  }}
+                  className="text-stone-300 hover:text-red-500 transition-colors p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  disabled={(settings.dialogues || [""]).length === 1}
+                  title="Xóa thoại khung này"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setSettings({ ...settings, dialogues: [...(settings.dialogues || [""]), ""] })}
+            className="text-[13px] text-[#D97757] font-medium hover:text-[#C66545] transition-colors self-start pb-1"
+          >
+            + Thêm thoại cho khung tiếp theo
+          </button>
         </div>
       </div>
 

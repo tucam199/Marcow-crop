@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useAppContext } from "../AppContext";
-import { Loader2, Download, X, Info, Copy, Check, ChevronDown, HelpCircle, Send, MessageCircle, LogOut } from "lucide-react";
+import { useAppContext } from "../../../AppContext";
+import { Loader2, Download, X, Info, Copy, Check, ChevronDown, HelpCircle, Send, MessageCircle, LogOut, ArrowLeft } from "lucide-react";
 
 const InteractiveDots = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -102,100 +102,15 @@ const InteractiveDots = () => {
 };
 
 export default function CenterCanvas() {
-  const { settings, page, characters, setPage, setIsAuthenticated } = useAppContext();
+  const { settings, setSettings, page, setPage, characters, setCharacters, setIsAuthenticated, setSelectedApp } = useAppContext();
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [currentGuideStep, setCurrentGuideStep] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
-  const [isPosting, setIsPosting] = useState(false);
-  const [postSuccess, setPostSuccess] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isBackModalOpen, setIsBackModalOpen] = useState(false);
 
-  const handlePostToFacebook = async () => {
-    if (!page.imageUrl) return;
-    setIsPosting(true);
-    setPostSuccess(false);
-
-    try {
-      // Dùng cách tải y hệt như lúc ấn Download để tránh bị trình duyệt chặn (CORS) lỗi Failed to fetch
-      // Bổ sung thêm nén dung lượng để tránh lỗi 413 Payload Too large ở phía server n8n
-      const getBlobFromImage = (url: string): Promise<Blob> => {
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => {
-            const canvas = document.createElement("canvas");
-            
-            // Giới hạn kích thước tối đa để giảm cực đại dung lượng ảnh
-            let width = img.width;
-            let height = img.height;
-            const maxSize = 1200; // Facebook khuyến nghị width khoảng 1200px
-            
-            if (width > maxSize || height > maxSize) {
-              const ratio = Math.min(maxSize / width, maxSize / height);
-              width = Math.round(width * ratio);
-              height = Math.round(height * ratio);
-            }
-            
-            canvas.width = width;
-            canvas.height = height;
-            
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-              // Điền nền trắng vì JPEG không hỗ trợ trong suốt (PNG)
-              ctx.fillStyle = "#ffffff";
-              ctx.fillRect(0, 0, width, height);
-              
-              // Bật bộ lọc khử răng cưa
-              ctx.imageSmoothingEnabled = true;
-              ctx.imageSmoothingQuality = "high";
-              ctx.drawImage(img, 0, 0, width, height);
-              
-              // Nén thành JPEG với chất lượng 80%
-              canvas.toBlob((blob) => {
-                if (blob) resolve(blob);
-                else reject(new Error("Không thể tạo dữ liệu ảnh"));
-              }, "image/jpeg", 0.8);
-            } else {
-              reject(new Error("Context Canvas bị lỗi"));
-            }
-          };
-          img.onerror = () => reject(new Error("Không thể tải ảnh từ URL"));
-          img.src = url;
-        });
-      };
-
-      const blob = await getBlobFromImage(page.imageUrl);
-
-      const formData = new FormData();
-      let postMessage = page.postCaption || page.originalScript || 'Comic page generated with AI Comic & Meme Studio';
-
-      formData.append('message', postMessage);
-      formData.append('target_id', import.meta.env.VITE_FB_TARGET_ID as string);
-      formData.append('access_token', import.meta.env.VITE_FB_ACCESS_TOKEN as string);
-      formData.append('data', blob, 'comic-page.jpg');
-
-      const webhookUrl = 'https://n8n.tbsupellex.com/webhook/antigravity-fb-post';
-      
-      const res = await fetch(webhookUrl, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        setPostSuccess(true);
-        setTimeout(() => setPostSuccess(false), 3000);
-      } else {
-        alert('Có lỗi xảy ra khi đăng bài.');
-      }
-    } catch (error: any) {
-      console.error('Error posting to FB:', error);
-      alert(`Có lỗi xảy ra khi kết nối: ${error.message || 'Không rõ nguyên nhân'}\nVui lòng ấn F12 -> Console để xem chi tiết.`);
-    } finally {
-      setIsPosting(false);
-    }
-  };
 
   const guideSteps = [
     {
@@ -345,7 +260,13 @@ export default function CenterCanvas() {
     <div className="flex-1 bg-[#FAF9F6] relative overflow-hidden flex flex-col items-center">
       <InteractiveDots />
       
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-3">
+        <button 
+          onClick={() => setIsBackModalOpen(true)}
+          className="text-stone-500 hover:text-stone-700 bg-white/50 hover:bg-white px-4 py-2 rounded-xl text-sm font-medium border border-stone-200 shadow-sm transition-all flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" /> Quay lại
+        </button>
         <button 
           onClick={() => setIsLogoutModalOpen(true)}
           className="text-stone-500 hover:text-red-600 bg-white/50 hover:bg-white px-4 py-2 rounded-xl text-sm font-medium border border-stone-200 shadow-sm transition-all flex items-center gap-2"
@@ -360,26 +281,7 @@ export default function CenterCanvas() {
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center px-8 pb-12 pt-6 md:px-12 mt-10">
           {page.imageUrl && (
             <div className="w-full flex justify-end mb-6 relative gap-3">
-              <button
-                onClick={handlePostToFacebook}
-                disabled={isPosting}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm active:scale-[0.98]
-                  ${postSuccess 
-                    ? 'bg-green-50 text-green-600 border border-green-200' 
-                    : 'bg-[#1877F2] hover:bg-[#166FE5] text-white border border-transparent hover:shadow-md'
-                  }
-                  ${isPosting ? 'opacity-80 cursor-not-allowed' : ''}
-                `}
-              >
-                {isPosting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : postSuccess ? (
-                  <Check className="w-4 h-4" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                {isPosting ? 'Đang đăng...' : postSuccess ? 'Đã đăng thành công' : 'Đăng lên Facebook'}
-              </button>
+
 
               <div className="relative">
                 <button
@@ -464,43 +366,6 @@ export default function CenterCanvas() {
                   </div>
                 )}
               </div>
-
-              {/* Caption Box */}
-              {!!page.postCaption && page.imageUrl && !page.isGenerating && (
-                <div 
-                  className="w-full md:w-[380px] bg-white border border-[#D97757]/30 rounded-2xl shadow-sm p-5 flex flex-col gap-4 shrink-0 transition-transform duration-300 animate-in fade-in slide-in-from-right-4 relative"
-                >
-                  <div className="flex items-center gap-2 border-b border-stone-100 pb-3">
-                     <div className="w-7 h-7 rounded-full bg-[#D97757]/10 flex items-center justify-center shrink-0">
-                       <MessageCircle className="w-3.5 h-3.5 text-[#D97757]" />
-                     </div>
-                     <h3 className="font-semibold text-stone-800 text-sm leading-tight flex-1">
-                       Content Gợi Ý <br />
-                       <span className="text-[10px] text-stone-500 font-normal">Cho mạng xã hội</span>
-                     </h3>
-                  </div>
-                  
-                  <div className="relative flex-1 flex flex-col group mt-1">
-                    <div className="absolute -left-1.5 -top-3 text-[#D97757]/20 font-serif text-3xl leading-none select-none pointer-events-none z-10">"</div>
-                    <textarea 
-                      value={page.postCaption || ""}
-                      onChange={(e) => setPage({ ...page, postCaption: e.target.value })}
-                      className="w-full flex-1 bg-transparent border-0 rounded-xl p-1 pt-2 pb-0 text-sm text-stone-700 leading-relaxed outline-none focus:ring-2 focus:ring-[#D97757]/20 focus:bg-stone-50 resize-none h-[180px] z-10"
-                    />
-                  </div>
-
-                  <button 
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      await navigator.clipboard.writeText(page.postCaption || "");
-                      alert("Đã sao chép Content!");
-                    }}
-                    className="mt-2 w-full text-[#D97757] hover:text-white bg-[#D97757]/5 hover:bg-[#D97757] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-[#D97757]/50 rounded-xl py-2.5 active:scale-95"
-                  >
-                    <Copy className="w-3.5 h-3.5" /> Sao Chép Content
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -677,6 +542,53 @@ export default function CenterCanvas() {
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-xl transition-colors shadow-sm"
               >
                 Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Back Modal */}
+      {isBackModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center p-8 gap-4">
+              <div className="w-12 h-12 rounded-full bg-[#D97757]/10 flex items-center justify-center text-[#D97757] mb-2">
+                <ArrowLeft className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-semibold text-stone-800">Xác nhận quay lại</h3>
+              <p className="text-sm text-stone-500 leading-relaxed">
+                Bạn có chắc chắn muốn quay lại bước Chọn Ứng dụng không? Toàn bộ thiết lập và dữ liệu truyện chưa lưu sẽ bị xóa để đảm bảo trải nghiệm mới.
+              </p>
+            </div>
+            
+            <div className="flex gap-3 p-4 bg-stone-50 border-t border-stone-100">
+              <button
+                onClick={() => setIsBackModalOpen(false)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-stone-600 bg-white border border-stone-200 hover:bg-stone-50 rounded-xl transition-colors shadow-sm"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={() => {
+                  setSettings({
+                    aspectRatio: "1:1",
+                    artStyle: "Thỏ Bảy Màu",
+                    script: "",
+                    dialogues: [""],
+                    postCaption: "",
+                  });
+                  setCharacters([]);
+                  setPage({
+                    imageUrl: null,
+                    isGenerating: false,
+                    characterRefIds: [],
+                  });
+                  setSelectedApp(null);
+                }}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-[#D97757] hover:bg-[#c66547] rounded-xl transition-colors shadow-sm"
+              >
+                Quay lại
               </button>
             </div>
           </div>
