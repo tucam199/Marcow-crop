@@ -227,9 +227,12 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
                 ) : fanpageUrls.length > 0 ? (
                   fanpageUrls.map((u, i) => {
                     const isChecked = selectedUrls.includes(u);
+                    const handleName = u.split('facebook.com/')[1]?.replace(/\/$/, '') || u;
+                    const avatarUrl = `https://unavatar.io/facebook/${handleName}?fallback=${encodeURIComponent(`https://ui-avatars.com/api/?name=${handleName}&background=D97757&color=fff&size=64`)}`;
+
                     return (
                       <label key={i} className={`flex flex-col gap-1 p-3 rounded-xl border cursor-pointer transition-colors ${isChecked ? 'bg-[#D97757]/5 border-[#D97757]/30' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-center gap-3">
                           <input
                             type="checkbox"
                             checked={isChecked}
@@ -240,9 +243,18 @@ export default function MartrendModal({ isOpen, onClose, onSelectImage }: Martre
                                 setSelectedUrls(prev => prev.filter(item => item !== u));
                               }
                             }}
-                            className="w-4 h-4 mt-0.5 accent-[#D97757] text-[#D97757] border-stone-300 rounded focus:ring-[#D97757]"
+                            className="w-4 h-4 accent-[#D97757] text-[#D97757] border-stone-300 rounded focus:ring-[#D97757]"
                           />
-                          <span className="text-sm text-stone-700 font-medium break-words leading-tight flex-1">{u}</span>
+                          <img 
+                            src={avatarUrl} 
+                            alt={handleName}
+                            className="w-8 h-8 rounded-full border border-stone-200 bg-stone-100 object-cover"
+                            onError={(e) => {
+                              // Fallback thủ công nếu unavatar dính lỗi network hoàn toàn
+                              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${handleName}&background=D97757&color=fff&size=64`;
+                            }}
+                          />
+                          <span className="text-sm text-stone-700 font-medium break-words leading-tight flex-1 truncate">{handleName}</span>
                         </div>
                       </label>
                     );

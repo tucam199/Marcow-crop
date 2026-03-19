@@ -76,7 +76,7 @@ async function startServer() {
   app.post("/api/gemini", async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on server. Please add it to .env file." });
     }
 
     const { action, model, contents, config: genConfig } = req.body;
@@ -105,8 +105,15 @@ async function startServer() {
 
       return res.status(200).json({ text: response.text });
     } catch (error: any) {
-      console.error("Gemini API Error:", error);
-      return res.status(500).json({ error: error.message });
+      console.error("Gemini API Error:", error?.message || error);
+      const errorMsg = error?.message || "Gemini API call failed";
+      if (errorMsg.includes("API key not valid") || errorMsg.includes("API_KEY_INVALID")) {
+        return res.status(401).json({ error: "API Key Gemini không hợp lệ. Vui lòng tạo key mới tại https://aistudio.google.com/apikey và cập nhật trong file .env" });
+      }
+      if (errorMsg.includes("quota") || errorMsg.includes("429")) {
+        return res.status(429).json({ error: "Đã hết quota API Gemini. Vui lòng chờ hoặc nâng cấp plan." });
+      }
+      return res.status(500).json({ error: errorMsg });
     }
   });
 

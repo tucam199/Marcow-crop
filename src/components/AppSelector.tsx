@@ -33,7 +33,15 @@ export default function AppSelector({ onSelect }: AppSelectorProps) {
   };
 
   return (
-    <div className="h-screen w-full flex items-center justify-center bg-[#FAF9F6] text-[#2D2D2D] font-sans p-6 relative">
+    <div 
+      className="h-screen w-full flex items-center justify-center text-[#2D2D2D] font-sans p-6 relative"
+      style={{
+        backgroundImage: "url('/bgg2.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
       <input
         type="file"
         ref={fileInputRef}
@@ -158,21 +166,19 @@ export default function AppSelector({ onSelect }: AppSelectorProps) {
         </div>
       </div>
 
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-2xl relative z-20">
         <div className="text-center mb-10">
           <img 
             src="https://matbao.in/wp-content/uploads/2026/03/marcow.png" 
             alt="Logo" 
             className="h-12 object-contain mx-auto mb-6"
           />
-          <h2 className="text-2xl font-semibold text-stone-800 mb-2">Chọn ứng dụng</h2>
-          <p className="text-stone-500">Vui lòng chọn hệ sinh thái bạn muốn truy cập để tiếp tục</p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <button
             onClick={() => onSelect('marcow')}
-            className="group flex flex-col items-center p-8 bg-white border-2 border-stone-200 rounded-3xl hover:border-[#D97757] hover:shadow-xl transition-all hover:-translate-y-1 text-left h-full"
+            className="w-full flex flex-col items-center justify-center p-8 bg-white border border-stone-200 rounded-3xl cursor-pointer hover:border-[#D97757] hover:bg-stone-50 transition-all group hover:-translate-y-1 text-left h-full"
           >
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform overflow-hidden">
               <img src="/macdinh.png" alt="Marcow Comic" className="w-full h-full object-contain" />
@@ -187,7 +193,7 @@ export default function AppSelector({ onSelect }: AppSelectorProps) {
 
           <button
             onClick={() => onSelect('marcow_n8n')}
-            className="group flex flex-col items-center p-8 bg-white border-2 border-stone-200 rounded-3xl hover:border-[#1877F2] hover:shadow-xl transition-all hover:-translate-y-1 text-left h-full"
+            className="group flex flex-col items-center p-8 bg-white border-2 border-stone-200 rounded-3xl hover:border-[#1877F2] transition-all hover:-translate-y-1 text-left h-full"
           >
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform overflow-hidden">
               <img src="/n8n.png" alt="Marcow Comic n8n" className="w-full h-full object-contain" />

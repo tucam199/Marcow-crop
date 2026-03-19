@@ -208,7 +208,7 @@ export default function RightSidebar() {
       ) {
         resetKey();
       } else {
-        alert("Tạo ảnh thất bại. Vui lòng kiểm tra API key và thử lại.");
+        alert(`Tạo ảnh thất bại: ${error?.message || "Lỗi không xác định"}`);
       }
       setPage((prev) => ({ ...prev, isGenerating: false }));
     }

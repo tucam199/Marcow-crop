@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on server' });
+    return res.status(500).json({ error: 'GEMINI_API_KEY chưa được cấu hình trên Vercel. Vào Settings > Environment Variables để thêm.' });
   }
 
   const { action, model, contents, config: genConfig } = req.body;
@@ -47,7 +47,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       text: response.text,
     });
   } catch (error: any) {
-    console.error('Gemini API Error:', error);
-    return res.status(500).json({ error: error.message || 'Gemini API call failed' });
+    console.error('Gemini API Error:', error?.message || error);
+    const errorMsg = error?.message || 'Gemini API call failed';
+    if (errorMsg.includes("API key not valid") || errorMsg.includes("API_KEY_INVALID")) {
+      return res.status(401).json({ error: "API Key Gemini không hợp lệ. Vui lòng tạo key mới tại https://aistudio.google.com/apikey" });
+    }
+    if (errorMsg.includes("quota") || errorMsg.includes("429")) {
+      return res.status(429).json({ error: "Đã hết quota API Gemini. Vui lòng chờ hoặc nâng cấp plan." });
+    }
+    return res.status(500).json({ error: errorMsg });
   }
 }
