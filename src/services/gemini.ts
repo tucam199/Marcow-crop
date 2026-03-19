@@ -1,16 +1,31 @@
-import { GoogleGenAI } from "@google/genai";
+// All Gemini API calls go through the server-side proxy /api/gemini
+// This ensures the API key is never exposed to the client
+
+async function callGeminiProxy(params: {
+  action: string;
+  model: string;
+  contents: any;
+  config?: any;
+}) {
+  const response = await fetch("/api/gemini", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(errData.error || `Gemini API failed (${response.status})`);
+  }
+
+  return response.json();
+}
 
 export async function generateScriptFromImage(
   image: { mimeType: string; data: string },
   characters?: { id: string; name: string; image: string; isSelected: boolean }[],
   textContext?: string
 ) {
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("API key is missing");
-  }
-  const ai = new GoogleGenAI({ apiKey });
-
   const selectedCharacters = characters?.filter(c => c.isSelected).map(c => c.name) || [];
   const characterNames = selectedCharacters.length > 0 ? selectedCharacters : ["Character 1", "Character 2"];
   
@@ -49,7 +64,8 @@ Bạn BẮT BUỘC phải trả về kết quả tuân thủ chính xác cấu t
 [ĐỊNH DẠNG ĐẦU RA]
 Chỉ trả về duy nhất một khối mã định dạng JSON hợp lệ. Không kèm theo bất kỳ văn bản giải thích, chào hỏi hay bình luận nào bên ngoài khối JSON.`;
 
-  const response = await ai.models.generateContent({
+  const result = await callGeminiProxy({
+    action: "generateContent",
     model: "gemini-3.1-pro-preview",
     contents: {
       parts: [
@@ -62,7 +78,7 @@ Chỉ trả về duy nhất một khối mã định dạng JSON hợp lệ. Kh�
     }
   });
 
-  return response.text;
+  return result.text;
 }
 
 export async function generateImagePromptsFromJson(
@@ -71,12 +87,6 @@ export async function generateImagePromptsFromJson(
   aspectRatio: string,
   characters: { id: string; name: string }[]
 ) {
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("API key is missing");
-  }
-  const ai = new GoogleGenAI({ apiKey });
-
   const characterRefs = characters.map((c, i) => `[REF_IMG_0${i + 1}] cho nhân vật "${c.name}"`).join(", ");
 
   const prompt = `Bạn là một chuyên gia Prompt Engineering hệ thống chuyên chuyển đổi các yêu cầu thiết kế truyện tranh (Manga/Comic) từ ngôn ngữ tự nhiên tiếng Việt thành các 'Image Generation Prompts' tối ưu bằng tiếng Anh.
@@ -123,7 +133,8 @@ Ví dụ in_painting_prompt: "Superman t-shirt, highly detailed, matching the ex
 
 Chỉ trả về duy nhất một khối mã định dạng JSON hợp lệ. Không kèm theo bất kỳ văn bản giải thích nào.`;
 
-  const response = await ai.models.generateContent({
+  const result = await callGeminiProxy({
+    action: "generateContent",
     model: "gemini-3.1-pro-preview",
     contents: prompt,
     config: {
@@ -131,7 +142,7 @@ Chỉ trả về duy nhất một khối mã định dạng JSON hợp lệ. Kh�
     }
   });
 
-  return response.text;
+  return result.text;
 }
 
 export async function generatePanelImage(
@@ -142,13 +153,6 @@ export async function generatePanelImage(
     image: { mimeType: string; data: string };
   }[],
 ) {
-  // Create a new GoogleGenAI instance right before making an API call
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("API key is missing");
-  }
-  const ai = new GoogleGenAI({ apiKey });
-
   const parts: any[] = [];
 
   if (referenceImages && referenceImages.length > 0) {
@@ -162,7 +166,8 @@ export async function generatePanelImage(
 
   parts.push({ text: prompt });
 
-  const response = await ai.models.generateContent({
+  const result = await callGeminiProxy({
+    action: "generateContent",
     model: "gemini-3.1-flash-image-preview",
     contents: { parts },
     config: {
@@ -173,9 +178,12 @@ export async function generatePanelImage(
     },
   });
 
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
-    if (part.inlineData) {
-      return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+  // Extract image from candidates
+  if (result.candidates) {
+    for (const part of result.candidates[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
     }
   }
   throw new Error("No image generated");
@@ -185,12 +193,6 @@ export async function generatePostCaptionFromImage(
   imageDataUrl: string,
   script?: string
 ) {
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("API key is missing");
-  }
-  const ai = new GoogleGenAI({ apiKey });
-
   const match = imageDataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
   if (!match) return "";
   const mimeType = match[1];
@@ -199,7 +201,8 @@ export async function generatePostCaptionFromImage(
   const scriptPrompt = script ? `\n\n[KỊCH BẢN THAM KHẢO]\n${script}` : "";
   const prompt = `Bạn là một nhà sáng tạo nội dung mạng xã hội (Social Media Creator) sành điệu (Gen-Z), hài hước và rất bắt trend. Dựa vào bức ảnh truyện tranh vừa được tạo ở trên${scriptPrompt}, hãy viết một Nội dung chữ (Post caption) siêu thu hút để Đăng Bài Lên Facebook. BẮT BUỘC: Viết siêu ngắn gọn (1-3 dòng), đánh trúng tâm lý, vui nhộn, chơi chữ sắc sảo, trêu đùa, hoặc cực kỳ triết lý và liên quan mật thiết đến tình huống trong bức ảnh. Thêm 1-2 emoji hợp lý. KẾT QUẢ TRẢ VỀ CHỈ CHỨA NỘI DUNG CAPTION, KHÔNG GIẢI THÍCH, KHÔNG CHÀO HỎI, KHÔNG BAO GỒM DẤU NGOẶC KÉP QUANH KẾT QUẢ.`;
 
-  const response = await ai.models.generateContent({
+  const result = await callGeminiProxy({
+    action: "generateContent",
     model: "gemini-3.1-pro-preview",
     contents: {
       parts: [
@@ -209,5 +212,5 @@ export async function generatePostCaptionFromImage(
     }
   });
 
-  return response.text;
+  return result.text;
 }

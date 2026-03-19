@@ -118,19 +118,17 @@ export default function CenterCanvas() {
     setPostSuccess(false);
 
     try {
-      // Dùng cách tải y hệt như lúc ấn Download để tránh bị trình duyệt chặn (CORS) lỗi Failed to fetch
-      // Bổ sung thêm nén dung lượng để tránh lỗi 413 Payload Too large ở phía server n8n
-      const getBlobFromImage = (url: string): Promise<Blob> => {
+      // Convert image to base64 for sending to server proxy
+      const getBase64FromImage = (url: string): Promise<string> => {
         return new Promise((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = "anonymous";
           img.onload = () => {
             const canvas = document.createElement("canvas");
             
-            // Giới hạn kích thước tối đa để giảm cực đại dung lượng ảnh
             let width = img.width;
             let height = img.height;
-            const maxSize = 1200; // Facebook khuyến nghị width khoảng 1200px
+            const maxSize = 1200;
             
             if (width > maxSize || height > maxSize) {
               const ratio = Math.min(maxSize / width, maxSize / height);
@@ -143,20 +141,16 @@ export default function CenterCanvas() {
             
             const ctx = canvas.getContext("2d");
             if (ctx) {
-              // Điền nền trắng vì JPEG không hỗ trợ trong suốt (PNG)
               ctx.fillStyle = "#ffffff";
               ctx.fillRect(0, 0, width, height);
-              
-              // Bật bộ lọc khử răng cưa
               ctx.imageSmoothingEnabled = true;
               ctx.imageSmoothingQuality = "high";
               ctx.drawImage(img, 0, 0, width, height);
               
-              // Nén thành JPEG với chất lượng 80%
-              canvas.toBlob((blob) => {
-                if (blob) resolve(blob);
-                else reject(new Error("Không thể tạo dữ liệu ảnh"));
-              }, "image/jpeg", 0.8);
+              // Get base64 without the data:image/jpeg;base64, prefix
+              const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+              const base64 = dataUrl.split(",")[1];
+              resolve(base64);
             } else {
               reject(new Error("Context Canvas bị lỗi"));
             }
@@ -166,28 +160,22 @@ export default function CenterCanvas() {
         });
       };
 
-      const blob = await getBlobFromImage(page.imageUrl);
-
-      const formData = new FormData();
+      const imageBase64 = await getBase64FromImage(page.imageUrl);
       let postMessage = page.postCaption || page.originalScript || 'Comic page generated with AI Comic & Meme Studio';
 
-      formData.append('message', postMessage);
-      formData.append('target_id', import.meta.env.VITE_FB_TARGET_ID as string);
-      formData.append('access_token', import.meta.env.VITE_FB_ACCESS_TOKEN as string);
-      formData.append('data', blob, 'comic-page.jpg');
-
-      const webhookUrl = 'https://n8n.tbsupellex.com/webhook/antigravity-fb-post';
-      
-      const res = await fetch(webhookUrl, {
+      // Call server-side proxy (no FB tokens exposed to client)
+      const res = await fetch('/api/fb-post', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: postMessage, imageBase64 }),
       });
 
       if (res.ok) {
         setPostSuccess(true);
         setTimeout(() => setPostSuccess(false), 3000);
       } else {
-        alert('Có lỗi xảy ra khi đăng bài.');
+        const errData = await res.json().catch(() => ({}));
+        alert(`Có lỗi xảy ra khi đăng bài: ${errData.error || 'Unknown'}`);
       }
     } catch (error: any) {
       console.error('Error posting to FB:', error);

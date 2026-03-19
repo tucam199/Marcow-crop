@@ -25,6 +25,7 @@ interface AppState {
   page: PageData;
   setPage: React.Dispatch<React.SetStateAction<PageData>>;
   isAuthenticated: boolean;
+  authChecked: boolean;
   setIsAuthenticated: (value: boolean) => void;
   selectedApp: 'marcow' | 'marcow_n8n' | null;
   setSelectedApp: (value: 'marcow' | 'marcow_n8n' | null) => void;
@@ -41,9 +42,8 @@ interface AppState {
 const AppContext = createContext<AppState | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem("auth") === "true";
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [selectedApp, setSelectedApp] = useState<'marcow' | 'marcow_n8n' | null>(() => {
     return localStorage.getItem("selectedApp") as 'marcow' | 'marcow_n8n' | null;
   });
@@ -78,6 +78,36 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     isGenerating: false,
     characterRefIds: [],
   });
+
+  // Verify auth token on app load
+  useEffect(() => {
+    async function verifyAuth() {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        setAuthChecked(true);
+        return;
+      }
+      try {
+        const res = await fetch("/api/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        const data = await res.json();
+        if (data.valid) {
+          setIsAuthenticated(true);
+        } else {
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("authUser");
+        }
+      } catch {
+        // If server is unreachable, keep the token but don't authenticate
+        // so the user can retry
+      }
+      setAuthChecked(true);
+    }
+    verifyAuth();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("userProfile", JSON.stringify(userProfile));
@@ -123,10 +153,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         page,
         setPage,
         isAuthenticated,
+        authChecked,
         setIsAuthenticated: (val) => {
           setIsAuthenticated(val);
-          localStorage.setItem("auth", val.toString());
           if (!val) {
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("authUser");
             setSelectedApp(null);
             localStorage.removeItem("selectedApp");
           }

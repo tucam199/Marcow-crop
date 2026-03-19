@@ -1,6 +1,7 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import crypto from "crypto";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -9,11 +10,150 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' }));
 
   // API routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // ===== AUTH ROUTES (server-side, secure) =====
+  app.post("/api/login", (req, res) => {
+    const { username, password } = req.body || {};
+
+    if (!username || !password) {
+      return res.status(400).json({ error: "Thiếu tên đăng nhập hoặc mật khẩu" });
+    }
+
+    const validAccounts = [
+      { username: process.env.AUTH_USER1_USERNAME, password: process.env.AUTH_USER1_PASSWORD },
+      { username: process.env.AUTH_USER2_USERNAME, password: process.env.AUTH_USER2_PASSWORD },
+    ];
+
+    const matched = validAccounts.find(
+      (acc) => acc.username && acc.password && acc.username === username && acc.password === password
+    );
+
+    if (!matched) {
+      return res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu" });
+    }
+
+    const secret = process.env.AUTH_SECRET || "marcow-default-secret-change-me";
+    const payload = JSON.stringify({ username, ts: Date.now() });
+    const token = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+
+    return res.status(200).json({
+      success: true,
+      token: `${Buffer.from(payload).toString("base64")}.${token}`,
+      username,
+    });
+  });
+
+  app.post("/api/verify", (req, res) => {
+    const { token } = req.body || {};
+    if (!token) return res.status(400).json({ valid: false });
+
+    try {
+      const secret = process.env.AUTH_SECRET || "marcow-default-secret-change-me";
+      const [payloadBase64, signature] = token.split(".");
+      if (!payloadBase64 || !signature) return res.status(401).json({ valid: false });
+
+      const payload = Buffer.from(payloadBase64, "base64").toString("utf-8");
+      const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+      if (signature !== expected) return res.status(401).json({ valid: false });
+
+      const data = JSON.parse(payload);
+      const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+      if (Date.now() - data.ts > maxAge) return res.status(401).json({ valid: false, reason: "Token expired" });
+
+      return res.status(200).json({ valid: true, username: data.username });
+    } catch {
+      return res.status(401).json({ valid: false });
+    }
+  });
+
+  // ===== GEMINI PROXY (server-side, keeps API key hidden) =====
+  app.post("/api/gemini", async (req, res) => {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+    }
+
+    const { action, model, contents, config: genConfig } = req.body;
+    if (!action || !model || !contents) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config: genConfig || undefined,
+      });
+
+      // Check for image in response
+      const parts = response.candidates?.[0]?.content?.parts;
+      if (parts) {
+        const hasImage = parts.some((p: any) => p.inlineData);
+        if (hasImage) {
+          return res.status(200).json({ candidates: response.candidates });
+        }
+      }
+
+      return res.status(200).json({ text: response.text });
+    } catch (error: any) {
+      console.error("Gemini API Error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== FACEBOOK POST PROXY (server-side, keeps FB token hidden) =====
+  app.post("/api/fb-post", async (req, res) => {
+    const fbTargetId = process.env.FB_TARGET_ID;
+    const fbAccessToken = process.env.FB_ACCESS_TOKEN;
+
+    if (!fbTargetId || !fbAccessToken) {
+      return res.status(500).json({ error: "Facebook credentials not configured" });
+    }
+
+    try {
+      const { message, imageBase64 } = req.body;
+      if (!message) {
+        return res.status(400).json({ error: "Missing message" });
+      }
+
+      const formData = new FormData();
+      formData.append("message", message);
+      formData.append("target_id", fbTargetId);
+      formData.append("access_token", fbAccessToken);
+
+      if (imageBase64) {
+        const binaryStr = atob(imageBase64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: "image/jpeg" });
+        formData.append("data", blob, "comic-page.jpg");
+      }
+
+      const webhookUrl = "https://n8n.tbsupellex.com/webhook/antigravity-fb-post";
+      const webhookRes = await fetch(webhookUrl, { method: "POST", body: formData });
+
+      if (webhookRes.ok) {
+        const data = await webhookRes.text();
+        return res.status(200).json({ success: true, data });
+      } else {
+        const errorText = await webhookRes.text();
+        return res.status(webhookRes.status).json({ error: errorText });
+      }
+    } catch (error: any) {
+      console.error("FB Post Error:", error);
+      return res.status(500).json({ error: error.message });
+    }
   });
 
   app.post("/api/apify/start", async (req, res) => {

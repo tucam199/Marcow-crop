@@ -6,20 +6,35 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Allowed accounts
-    const isValid = 
-      (username === import.meta.env.VITE_USER1_USERNAME && password === import.meta.env.VITE_USER1_PASSWORD) ||
-      (username === import.meta.env.VITE_USER2_USERNAME && password === import.meta.env.VITE_USER2_PASSWORD);
+    setIsLoading(true);
+    setError("");
 
-    if (isValid) {
-      setIsAuthenticated(true);
-      setError("");
-    } else {
-      setError("Sai tài khoản hoặc mật khẩu");
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Store the secure token (not plain credentials)
+        localStorage.setItem("authToken", data.token);
+        localStorage.setItem("authUser", data.username);
+        setIsAuthenticated(true);
+        setError("");
+      } else {
+        setError(data.error || "Sai tài khoản hoặc mật khẩu");
+      }
+    } catch (err) {
+      setError("Không thể kết nối đến server. Vui lòng thử lại.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -69,6 +84,7 @@ export default function Login() {
               className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all"
               placeholder="Nhập tên đăng nhập"
               required
+              disabled={isLoading}
             />
           </div>
 
@@ -81,14 +97,16 @@ export default function Login() {
               className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all"
               placeholder="Nhập mật khẩu"
               required
+              disabled={isLoading}
             />
           </div>
 
           <button
             type="submit"
-            className="mt-2 w-full bg-[#D97757] hover:bg-[#C66545] text-white font-medium py-3 rounded-xl transition-all shadow-sm active:scale-[0.98]"
+            disabled={isLoading}
+            className="mt-2 w-full bg-[#D97757] hover:bg-[#C66545] text-white font-medium py-3 rounded-xl transition-all shadow-sm active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Đăng nhập
+            {isLoading ? "Đang xác thực..." : "Đăng nhập"}
           </button>
         </form>
       </div>

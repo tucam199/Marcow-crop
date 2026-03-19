@@ -5,7 +5,18 @@ import MarcowApp from "./apps/marcow";
 import MarcowN8nApp from "./apps/marcow-n8n";
 
 function AppContent() {
-  const { hasKey, handleSelectKey, isAuthenticated, selectedApp, setSelectedApp } = useAppContext();
+  const { hasKey, handleSelectKey, isAuthenticated, authChecked, selectedApp, setSelectedApp } = useAppContext();
+
+  if (!authChecked) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-[#FAF9F6] text-[#2D2D2D]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-[#D97757] border-t-transparent rounded-full animate-spin" />
+          <span className="text-stone-500 text-sm">Đang xác thực...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Login />;
