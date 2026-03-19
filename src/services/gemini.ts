@@ -1,24 +1,60 @@
-// All Gemini API calls go through the server-side proxy /api/gemini
-// This ensures the API key is never exposed to the client
+// Gemini API calls are made DIRECTLY from the browser
+// The API key is fetched from /api/get-config (requires authentication)
+// This avoids Vercel's 10s serverless function timeout
 
-async function callGeminiProxy(params: {
-  action: string;
-  model: string;
-  contents: any;
-  config?: any;
-}) {
-  const response = await fetch("/api/gemini", {
+import { GoogleGenAI } from "@google/genai";
+
+let cachedApiKey: string | null = null;
+
+async function getGeminiApiKey(): Promise<string> {
+  if (cachedApiKey) return cachedApiKey;
+
+  const token = localStorage.getItem("authToken");
+  if (!token) {
+    throw new Error("Chưa đăng nhập. Vui lòng đăng nhập lại.");
+  }
+
+  const response = await fetch("/api/get-config", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
+    body: JSON.stringify({ token }),
   });
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(errData.error || `Gemini API failed (${response.status})`);
+    if (response.status === 401) {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("authUser");
+      throw new Error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+    }
+    throw new Error(errData.error || "Không thể lấy cấu hình API");
   }
 
-  return response.json();
+  const data = await response.json();
+  cachedApiKey = data.geminiKey;
+  return cachedApiKey!;
+}
+
+// Clear cached key (e.g., when user logs out or key becomes invalid)
+export function clearCachedApiKey() {
+  cachedApiKey = null;
+}
+
+async function callGeminiDirect(params: {
+  model: string;
+  contents: any;
+  config?: any;
+}) {
+  const apiKey = await getGeminiApiKey();
+  const ai = new GoogleGenAI({ apiKey });
+
+  const response = await ai.models.generateContent({
+    model: params.model,
+    contents: params.contents,
+    config: params.config || undefined,
+  });
+
+  return response;
 }
 
 export async function generateScriptFromImage(
@@ -64,8 +100,7 @@ Bạn BẮT BUỘC phải trả về kết quả tuân thủ chính xác cấu t
 [ĐỊNH DẠNG ĐẦU RA]
 Chỉ trả về duy nhất một khối mã định dạng JSON hợp lệ. Không kèm theo bất kỳ văn bản giải thích, chào hỏi hay bình luận nào bên ngoài khối JSON.`;
 
-  const result = await callGeminiProxy({
-    action: "generateContent",
+  const response = await callGeminiDirect({
     model: "gemini-3.1-pro-preview",
     contents: {
       parts: [
@@ -78,7 +113,7 @@ Chỉ trả về duy nhất một khối mã định dạng JSON hợp lệ. Kh�
     }
   });
 
-  return result.text;
+  return response.text;
 }
 
 export async function generateImagePromptsFromJson(
@@ -133,8 +168,7 @@ Ví dụ in_painting_prompt: "Superman t-shirt, highly detailed, matching the ex
 
 Chỉ trả về duy nhất một khối mã định dạng JSON hợp lệ. Không kèm theo bất kỳ văn bản giải thích nào.`;
 
-  const result = await callGeminiProxy({
-    action: "generateContent",
+  const response = await callGeminiDirect({
     model: "gemini-3.1-pro-preview",
     contents: prompt,
     config: {
@@ -142,7 +176,7 @@ Chỉ trả về duy nhất một khối mã định dạng JSON hợp lệ. Kh�
     }
   });
 
-  return result.text;
+  return response.text;
 }
 
 export async function generatePanelImage(
@@ -166,8 +200,7 @@ export async function generatePanelImage(
 
   parts.push({ text: prompt });
 
-  const result = await callGeminiProxy({
-    action: "generateContent",
+  const response = await callGeminiDirect({
     model: "gemini-3.1-flash-image-preview",
     contents: { parts },
     config: {
@@ -179,10 +212,11 @@ export async function generatePanelImage(
   });
 
   // Extract image from candidates
-  if (result.candidates) {
-    for (const part of result.candidates[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+  if (response.candidates) {
+    for (const part of response.candidates[0]?.content?.parts || []) {
+      if ((part as any).inlineData) {
+        const inlineData = (part as any).inlineData;
+        return `data:${inlineData.mimeType};base64,${inlineData.data}`;
       }
     }
   }
@@ -201,8 +235,7 @@ export async function generatePostCaptionFromImage(
   const scriptPrompt = script ? `\n\n[KỊCH BẢN THAM KHẢO]\n${script}` : "";
   const prompt = `Bạn là một nhà sáng tạo nội dung mạng xã hội (Social Media Creator) sành điệu (Gen-Z), hài hước và rất bắt trend. Dựa vào bức ảnh truyện tranh vừa được tạo ở trên${scriptPrompt}, hãy viết một Nội dung chữ (Post caption) siêu thu hút để Đăng Bài Lên Facebook. BẮT BUỘC: Viết siêu ngắn gọn (1-3 dòng), đánh trúng tâm lý, vui nhộn, chơi chữ sắc sảo, trêu đùa, hoặc cực kỳ triết lý và liên quan mật thiết đến tình huống trong bức ảnh. Thêm 1-2 emoji hợp lý. KẾT QUẢ TRẢ VỀ CHỈ CHỨA NỘI DUNG CAPTION, KHÔNG GIẢI THÍCH, KHÔNG CHÀO HỎI, KHÔNG BAO GỒM DẤU NGOẶC KÉP QUANH KẾT QUẢ.`;
 
-  const result = await callGeminiProxy({
-    action: "generateContent",
+  const response = await callGeminiDirect({
     model: "gemini-3.1-pro-preview",
     contents: {
       parts: [
@@ -212,5 +245,5 @@ export async function generatePostCaptionFromImage(
     }
   });
 
-  return result.text;
+  return response.text;
 }

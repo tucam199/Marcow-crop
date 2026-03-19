@@ -161,6 +161,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             localStorage.removeItem("authUser");
             setSelectedApp(null);
             localStorage.removeItem("selectedApp");
+            // Clear cached Gemini API key on logout
+            import("./services/gemini").then(m => m.clearCachedApiKey());
           }
         },
         selectedApp,
